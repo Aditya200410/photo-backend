@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const xlsx = require('xlsx');
 
 const app = express();
 const PORT = 5000;
@@ -12,6 +14,12 @@ const JWT_SECRET = 'supersecretjwtkey_please_change_in_production'; // Simple ha
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.get('/api/download/:filename', (req, res) => {
+  const file = path.join(__dirname, 'uploads', req.params.filename);
+  res.download(file);
+});
 
 const dataFilePath = path.join(__dirname, 'data.json');
 const usersFilePath = path.join(__dirname, 'users.json');
@@ -98,6 +106,95 @@ app.get('/api/prints', authMiddleware, (req, res) => {
   } catch (err) {
     console.error('Error reading prints:', err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Configure multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const customName = req.body.fileName || file.originalname;
+    const finalName = (customName.endsWith('.xlsx') || customName.endsWith('.csv') || customName.endsWith('.xls')) ? customName : `${customName}.xlsx`;
+    cb(null, finalName);
+  }
+});
+const upload = multer({ storage });
+
+const excelMetaPath = path.join(__dirname, 'excel-metadata.json');
+
+app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const category = req.body.category || 'general';
+  
+  if (!fs.existsSync(excelMetaPath)) fs.writeFileSync(excelMetaPath, JSON.stringify([]));
+  
+  const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  metadata.push({
+    id: Date.now(),
+    fileName: req.file.filename,
+    originalName: req.file.originalname,
+    category: category,
+    state: req.body.state,
+    district: req.body.district,
+    city: req.body.city,
+    assembly: req.body.assembly,
+    booth: req.body.booth,
+    ward: req.body.ward,
+    village: req.body.village,
+    panchayat: req.body.panchayat,
+    timestamp: new Date().toISOString()
+  });
+  fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+
+  res.json({ message: 'File uploaded successfully', fileName: req.file.filename });
+});
+
+app.get('/api/excel-files/:category', (req, res) => {
+  const category = req.params.category;
+  if (!fs.existsSync(excelMetaPath)) return res.json([]);
+  
+  const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  const filtered = metadata.filter(m => m.category === category);
+  filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  res.json(filtered);
+});
+
+// GET endpoint to fetch voters from excel based on location metadata
+app.get('/api/voters', (req, res) => {
+  const { category, state, district, city, assembly, booth, ward, village, panchayat } = req.query;
+  if (!fs.existsSync(excelMetaPath)) return res.json({ voters: [] });
+
+  const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  // Find matching excel file
+  const matchingFile = metadata.find(m => {
+    let match = m.category === category;
+    if (state && m.state) match = match && m.state === state;
+    if (district && m.district) match = match && m.district === district;
+    if (city && m.city) match = match && m.city === city;
+    if (assembly && m.assembly) match = match && m.assembly === assembly;
+    if (booth && m.booth) match = match && m.booth === booth;
+    if (ward && m.ward) match = match && m.ward === ward;
+    if (village && m.village) match = match && m.village === village;
+    if (panchayat && m.panchayat) match = match && m.panchayat === panchayat;
+    return match;
+  });
+
+  if (!matchingFile) return res.json({ error: 'No data found for this location', voters: [] });
+
+  const filePath = path.join(__dirname, 'uploads', matchingFile.fileName);
+  if (!fs.existsSync(filePath)) return res.json({ error: 'Excel file not found on disk', voters: [] });
+
+  try {
+    const wb = xlsx.readFile(filePath);
+    const firstSheet = wb.Sheets[wb.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json(firstSheet);
+    res.json({ voters: data });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read excel file', details: e.message });
   }
 });
 

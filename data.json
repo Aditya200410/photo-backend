@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1790253167525,
+    "option_type": "Option 1",
+    "ward_no": "-",
+    "part_no": "123",
+    "serial_no": 1,
+    "voter_name": "MOHAMMAD NADIM",
+    "pages_count": 1,
+    "timestamp": "2026-09-24T12:32:47.525Z"
+  },
+  {
+    "id": 1790253367621,
+    "option_type": "Assembly",
+    "ward_no": "-",
+    "part_no": "123",
+    "serial_no": "ALL",
+    "voter_name": "Batch Directory",
+    "pages_count": 14146,
+    "timestamp": "2026-09-24T12:36:07.621Z"
+  },
+  {
+    "id": 1790253694868,
+    "option_type": "Assembly",
+    "ward_no": "-",
+    "part_no": "123",
+    "serial_no": "ALL",
+    "voter_name": "Batch Directory",
+    "pages_count": 14146,
+    "timestamp": "2026-09-24T12:41:34.868Z"
+  },
+  {
+    "id": 1790253802857,
+    "option_type": "Assembly",
+    "ward_no": "-",
+    "part_no": "123",
+    "serial_no": "ALL",
+    "voter_name": "Batch Directory",
+    "pages_count": 14146,
+    "timestamp": "2026-09-24T12:43:22.857Z"
+  }
+]
