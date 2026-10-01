@@ -12,7 +12,11 @@ const PORT = 5000;
 const JWT_SECRET = 'supersecretjwtkey_please_change_in_production'; // Simple hardcoded secret
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
