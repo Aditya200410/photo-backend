@@ -163,6 +163,34 @@ app.get('/api/excel-files/:category', (req, res) => {
   res.json(filtered);
 });
 
+// PUT endpoint to update excel file metadata
+app.put('/api/excel-files/:id', (req, res) => {
+  const fileId = parseInt(req.params.id);
+  if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
+  
+  let metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  const fileIndex = metadata.findIndex(m => m.id === fileId);
+  
+  if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
+  
+  const updatedData = req.body;
+  // Ensure we don't overwrite id, fileName, originalName, category, timestamp
+  metadata[fileIndex] = { 
+    ...metadata[fileIndex], 
+    state: updatedData.state || metadata[fileIndex].state,
+    district: updatedData.district || metadata[fileIndex].district,
+    city: updatedData.city || metadata[fileIndex].city,
+    ward: updatedData.ward || metadata[fileIndex].ward,
+    booth: updatedData.booth || metadata[fileIndex].booth,
+    assembly: updatedData.assembly || metadata[fileIndex].assembly,
+    village: updatedData.village || metadata[fileIndex].village,
+    panchayat: updatedData.panchayat || metadata[fileIndex].panchayat
+  };
+  
+  fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+  res.json({ message: 'File metadata updated successfully', data: metadata[fileIndex] });
+});
+
 // GET endpoint to fetch voters from excel based on location metadata
 app.get('/api/voters', (req, res) => {
   const { category, state, district, city, assembly, booth, ward, village, panchayat } = req.query;
