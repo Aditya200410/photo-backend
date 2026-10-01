@@ -198,7 +198,25 @@ app.get('/api/voters', (req, res) => {
   }
 });
 
+// Keep-alive ping endpoint
+app.get('/api/ping', (req, res) => {
+  res.status(200).send('pong');
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
+  
+  // Self-ping to keep Render backend awake
+  const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  const interval = 14 * 60 * 1000; // 14 minutes
+  
+  setInterval(() => {
+    const lib = url.startsWith('https') ? require('https') : require('http');
+    lib.get(`${url}/api/ping`, (res) => {
+      console.log(`Keep-alive ping to ${url}/api/ping: ${res.statusCode}`);
+    }).on('error', (e) => {
+      console.error(`Keep-alive ping error: ${e.message}`);
+    });
+  }, interval);
 });
