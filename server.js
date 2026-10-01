@@ -167,8 +167,8 @@ app.get('/api/excel-files/:category', (req, res) => {
   res.json(filtered);
 });
 
-// PUT endpoint to update excel file metadata
-app.put('/api/excel-files/:id', (req, res) => {
+// PUT endpoint to update excel file metadata and optionally replace the file
+app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
   const fileId = parseInt(req.params.id);
   if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
   
@@ -178,8 +178,8 @@ app.put('/api/excel-files/:id', (req, res) => {
   if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
   
   const updatedData = req.body;
-  // Ensure we don't overwrite id, fileName, originalName, category, timestamp
-  metadata[fileIndex] = { 
+  // Ensure we don't overwrite id, fileName, originalName, category, timestamp unless a new file is uploaded
+  let updatedEntry = { 
     ...metadata[fileIndex], 
     state: updatedData.state || metadata[fileIndex].state,
     district: updatedData.district || metadata[fileIndex].district,
@@ -190,6 +190,14 @@ app.put('/api/excel-files/:id', (req, res) => {
     village: updatedData.village || metadata[fileIndex].village,
     panchayat: updatedData.panchayat || metadata[fileIndex].panchayat
   };
+
+  if (req.file) {
+    updatedEntry.fileName = req.file.filename;
+    updatedEntry.originalName = req.file.originalname;
+    updatedEntry.timestamp = new Date().toISOString();
+  }
+  
+  metadata[fileIndex] = updatedEntry;
   
   fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
   res.json({ message: 'File metadata updated successfully', data: metadata[fileIndex] });
