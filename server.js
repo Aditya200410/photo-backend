@@ -46,9 +46,18 @@ if (!fs.existsSync(settingsFilePath)) {
   const defaultSettings = {
     assemblyImage: "https://images.unsplash.com/photo-1575517111478-7f6afd0973db?q=80&w=2070&auto=format&fit=crop",
     nagarNigamImage: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?q=80&w=2070&auto=format&fit=crop",
-    gramPanchayatImage: "https://images.unsplash.com/photo-1592659762303-90081d34b277?q=80&w=2073&auto=format&fit=crop"
+    gramPanchayatImage: "https://images.unsplash.com/photo-1592659762303-90081d34b277?q=80&w=2073&auto=format&fit=crop",
+    privacyPolicyText: "This is the default privacy policy. Update this in the admin panel.",
+    termsOfServiceText: "These are the default terms of service. Update this in the admin panel."
   };
   fs.writeFileSync(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
+} else {
+  // Add new defaults to existing settings if they don't exist
+  let settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
+  let updated = false;
+  if (!settings.privacyPolicyText) { settings.privacyPolicyText = "This is the default privacy policy. Update this in the admin panel."; updated = true; }
+  if (!settings.termsOfServiceText) { settings.termsOfServiceText = "These are the default terms of service. Update this in the admin panel."; updated = true; }
+  if (updated) fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
 }
 
 const authMiddleware = (req, res, next) => {
@@ -147,11 +156,8 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
   if (!fs.existsSync(excelMetaPath)) fs.writeFileSync(excelMetaPath, JSON.stringify([]));
   
   const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-  metadata.push({
-    id: Date.now(),
-    fileName: req.file.filename,
-    originalName: req.file.originalname,
-    category: category,
+  
+  let extractedMeta = {
     state: req.body.state,
     district: req.body.district,
     city: req.body.city,
@@ -160,6 +166,39 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
     ward: req.body.ward,
     village: req.body.village,
     panchayat: req.body.panchayat,
+  };
+
+  try {
+    const wb = xlsx.readFile(req.file.path);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json(sheet);
+    if (data && data.length > 0) {
+      const firstRow = data[0];
+      // Override with Excel data if present
+      if (firstRow['ZILLA PARISHAD NAME']) extractedMeta.district = String(firstRow['ZILLA PARISHAD NAME']).trim();
+      
+      // Depending on category, map PANCHAYAT SAMITI to city or assembly
+      if (firstRow['PANCHAYAT SAMITI NAME']) {
+        const samiti = String(firstRow['PANCHAYAT SAMITI NAME']).trim();
+        extractedMeta.city = samiti;
+        extractedMeta.assembly = samiti;
+      }
+      
+      if (firstRow['BOOTH_NO']) extractedMeta.booth = String(firstRow['BOOTH_NO']).trim();
+      if (firstRow['WARDNO']) extractedMeta.ward = String(firstRow['WARDNO']).trim();
+      if (firstRow['VILLAGE']) extractedMeta.village = String(firstRow['VILLAGE']).trim();
+      if (firstRow['PANCHAYAT NAME']) extractedMeta.panchayat = String(firstRow['PANCHAYAT NAME']).trim();
+    }
+  } catch(e) {
+    console.error('Error extracting data from excel:', e);
+  }
+
+  metadata.push({
+    id: Date.now(),
+    fileName: req.file.filename,
+    originalName: req.file.originalname,
+    category: category,
+    ...extractedMeta,
     timestamp: new Date().toISOString()
   });
   fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
@@ -175,6 +214,33 @@ app.get('/api/excel-files/:category', (req, res) => {
   const filtered = metadata.filter(m => m.category === category);
   filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   res.json(filtered);
+});
+
+// Analytics API
+app.get('/api/analytics', (req, res) => {
+  let excelFilesCount = 0;
+  let printsCount = 0;
+  let lastPrintDate = null;
+
+  if (fs.existsSync(excelMetaPath)) {
+    const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+    excelFilesCount = metadata.length;
+  }
+  
+  if (fs.existsSync(dataFilePath)) {
+    const prints = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
+    printsCount = prints.length;
+    if (prints.length > 0) {
+      prints.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      lastPrintDate = prints[0].timestamp;
+    }
+  }
+
+  res.json({
+    excelFilesCount,
+    printsCount,
+    lastPrintDate
+  });
 });
 
 // PUT endpoint to update excel file metadata and optionally replace the file
