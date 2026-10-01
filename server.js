@@ -27,6 +27,8 @@ app.get('/api/download/:filename', (req, res) => {
 
 const dataFilePath = path.join(__dirname, 'data.json');
 const usersFilePath = path.join(__dirname, 'users.json');
+const settingsFilePath = path.join(__dirname, 'settings.json');
+
 
 // Initialize data files if they don't exist
 if (!fs.existsSync(dataFilePath)) {
@@ -39,6 +41,14 @@ if (!fs.existsSync(usersFilePath)) {
     passwordHash: '$2b$10$.TH8V2wgwIf8Kuz1pZEdF.DHKchynjrV0B8OLK2d.fS4skIaHkgPm'
   }];
   fs.writeFileSync(usersFilePath, JSON.stringify(defaultAdmin, null, 2));
+}
+if (!fs.existsSync(settingsFilePath)) {
+  const defaultSettings = {
+    assemblyImage: "https://images.unsplash.com/photo-1575517111478-7f6afd0973db?q=80&w=2070&auto=format&fit=crop",
+    nagarNigamImage: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?q=80&w=2070&auto=format&fit=crop",
+    gramPanchayatImage: "https://images.unsplash.com/photo-1592659762303-90081d34b277?q=80&w=2073&auto=format&fit=crop"
+  };
+  fs.writeFileSync(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
 }
 
 const authMiddleware = (req, res, next) => {
@@ -236,6 +246,41 @@ app.get('/api/voters', (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Failed to read excel file', details: e.message });
   }
+});
+
+// Settings API
+app.get('/api/settings', (req, res) => {
+  const settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
+  res.json(settings);
+});
+
+app.put('/api/settings', (req, res) => {
+  const settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
+  const updatedSettings = { ...settings, ...req.body };
+  fs.writeFileSync(settingsFilePath, JSON.stringify(updatedSettings, null, 2));
+  res.json({ message: 'Settings updated successfully', settings: updatedSettings });
+});
+
+app.post('/api/settings/upload-image', upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const key = req.body.key;
+  
+  if (!['assemblyImage', 'nagarNigamImage', 'gramPanchayatImage'].includes(key)) {
+    // try to delete the uploaded file since it's invalid
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'Invalid key' });
+  }
+
+  const settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
+  
+  // Create absolute URL or relative URL based on app setup
+  // Usually relative path like /api/uploads/filename is better as it works on any host/port
+  const imageUrl = `http://localhost:${PORT}/api/uploads/${req.file.filename}`;
+  
+  settings[key] = imageUrl;
+  fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
+  
+  res.json({ message: 'Image updated successfully', imageUrl });
 });
 
 // Keep-alive ping endpoint
