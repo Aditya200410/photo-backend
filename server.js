@@ -189,6 +189,8 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
       if (firstRow['VILLAGE']) extractedMeta.village = String(firstRow['VILLAGE']).trim();
       if (firstRow['PANCHAYAT NAME']) extractedMeta.panchayat = String(firstRow['PANCHAYAT NAME']).trim();
     }
+    // Store JSON version for fast access
+    fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
   } catch(e) {
     console.error('Error extracting data from excel:', e);
   }
@@ -218,13 +220,57 @@ app.get('/api/excel-files/:category', (req, res) => {
 
 // Analytics API
 app.get('/api/analytics', (req, res) => {
-  let excelFilesCount = 0;
   let printsCount = 0;
   let lastPrintDate = null;
+  
+  let stats = {
+    assemblyFiles: 0,
+    nagarNigamFiles: 0,
+    panchayatFiles: 0,
+    totalVoters: 0,
+    maleVoters: 0,
+    femaleVoters: 0,
+    averageAge: 0,
+    totalAge: 0, // for internal calculation
+    votersWithAge: 0
+  };
 
   if (fs.existsSync(excelMetaPath)) {
     const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-    excelFilesCount = metadata.length;
+    
+    for (const m of metadata) {
+      if (m.category === 'assembly') stats.assemblyFiles++;
+      else if (m.category === 'nagar-nigam') stats.nagarNigamFiles++;
+      else if (m.category === 'panchayat') stats.panchayatFiles++;
+
+      const jsonFilePath = path.join(__dirname, 'uploads', m.fileName + '.json');
+      if (fs.existsSync(jsonFilePath)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
+          stats.totalVoters += data.length;
+          
+          for (const v of data) {
+            // Determine Gender
+            const gender = (v.MSEX || v.FGENDER || v.SEX || '').toUpperCase();
+            if (gender === 'M' || gender === 'पुरुष') stats.maleVoters++;
+            else if (gender === 'F' || gender === 'स्त्री') stats.femaleVoters++;
+            
+            // Determine Age
+            const age = parseInt(v.MAGE || v.FAGE || v.AGE);
+            if (!isNaN(age) && age > 0 && age < 150) {
+              stats.totalAge += age;
+              stats.votersWithAge++;
+            }
+          }
+        } catch (e) {
+          console.error("Error reading JSON for analytics:", e);
+        }
+      }
+    }
+    
+    if (stats.votersWithAge > 0) {
+      stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
+    }
   }
   
   if (fs.existsSync(dataFilePath)) {
@@ -237,7 +283,7 @@ app.get('/api/analytics', (req, res) => {
   }
 
   res.json({
-    excelFilesCount,
+    ...stats,
     printsCount,
     lastPrintDate
   });
@@ -271,6 +317,16 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
     updatedEntry.fileName = req.file.filename;
     updatedEntry.originalName = req.file.originalname;
     updatedEntry.timestamp = new Date().toISOString();
+
+    // Process new file to JSON immediately
+    try {
+      const wb = xlsx.readFile(req.file.path);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const data = xlsx.utils.sheet_to_json(sheet);
+      fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
+    } catch(e) {
+      console.error('Error processing updated excel to JSON:', e);
+    }
   }
   
   metadata[fileIndex] = updatedEntry;
@@ -278,6 +334,8 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
   fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
   res.json({ message: 'File metadata updated successfully', data: metadata[fileIndex] });
 });
+
+const excelDataCache = new Map(); // Kept for backwards compatibility if needed, but not heavily relied on
 
 // GET endpoint to fetch voters from excel based on location metadata
 app.get('/api/voters', (req, res) => {
@@ -302,15 +360,24 @@ app.get('/api/voters', (req, res) => {
   if (!matchingFile) return res.json({ error: 'No data found for this location', voters: [] });
 
   const filePath = path.join(__dirname, 'uploads', matchingFile.fileName);
-  if (!fs.existsSync(filePath)) return res.json({ error: 'Excel file not found on disk', voters: [] });
+  const jsonFilePath = filePath + '.json';
+  
+  if (!fs.existsSync(filePath) && !fs.existsSync(jsonFilePath)) return res.json({ error: 'Data file not found on disk', voters: [] });
 
   try {
-    const wb = xlsx.readFile(filePath);
-    const firstSheet = wb.Sheets[wb.SheetNames[0]];
-    const data = xlsx.utils.sheet_to_json(firstSheet);
+    let data;
+    if (fs.existsSync(jsonFilePath)) {
+      data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
+    } else {
+      // Fallback: convert old excel to JSON on first access
+      const wb = xlsx.readFile(filePath);
+      const firstSheet = wb.Sheets[wb.SheetNames[0]];
+      data = xlsx.utils.sheet_to_json(firstSheet);
+      fs.writeFileSync(jsonFilePath, JSON.stringify(data));
+    }
     res.json({ voters: data });
   } catch (e) {
-    res.status(500).json({ error: 'Failed to read excel file', details: e.message });
+    res.status(500).json({ error: 'Failed to read data file', details: e.message });
   }
 });
 

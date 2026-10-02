@@ -9,5 +9,34 @@
     "assembly": "jha",
     "booth": "123",
     "timestamp": "2026-09-24T12:04:55.488Z"
+  },
+  {
+    "id": 1790870006315,
+    "fileName": "Bhompura_Raisinghnagar_Sriganganagar.xlsx",
+    "originalName": "Bhompura_Raisinghnagar_Sriganganagar.xlsx",
+    "category": "assembly",
+    "district": "Bamboo Flat",
+    "city": "Raisinghnagar",
+    "assembly": "Raisinghnagar",
+    "booth": "81",
+    "ward": "1",
+    "village": "71 N P",
+    "panchayat": "Bhompura",
+    "timestamp": "2026-10-01T15:54:02.544Z",
+    "state": "AN"
+  },
+  {
+    "id": 1790870069536,
+    "fileName": "Bhompura_Raisinghnagar_Sriganganagar.xlsx",
+    "originalName": "Bhompura_Raisinghnagar_Sriganganagar.xlsx",
+    "category": "assembly",
+    "district": "Ganganagar",
+    "city": "Raisinghnagar",
+    "assembly": "Raisinghnagar",
+    "booth": "81",
+    "ward": "1",
+    "village": "71 N P",
+    "panchayat": "Bhompura",
+    "timestamp": "2026-10-01T15:54:29.536Z"
   }
 ]
