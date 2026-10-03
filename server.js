@@ -491,6 +491,39 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
   res.json({ message: 'File metadata updated successfully', data: metadata[fileIndex] });
 });
 
+app.delete('/api/excel-files/:id', (req, res) => {
+  const fileId = parseInt(req.params.id);
+  if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
+  
+  let metadata = [];
+  try {
+    metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  } catch(e) {
+    return res.status(500).json({ error: 'Internal server error reading metadata' });
+  }
+  
+  const fileIndex = metadata.findIndex(m => m.id === fileId);
+  if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
+  
+  const fileEntry = metadata[fileIndex];
+  
+  // Optionally delete physical files
+  try {
+    if (fileEntry.fileName) {
+      const filePath = path.join(__dirname, 'uploads', fileEntry.fileName);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      if (fs.existsSync(filePath + '.json')) fs.unlinkSync(filePath + '.json');
+    }
+  } catch (err) {
+    console.error('Error deleting physical files:', err);
+  }
+  
+  metadata.splice(fileIndex, 1);
+  fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+  
+  res.json({ message: 'File deleted successfully' });
+});
+
 const excelDataCache = new Map(); // Kept for backwards compatibility if needed, but not heavily relied on
 
 // GET endpoint to fetch voters from excel based on location metadata
