@@ -177,6 +177,20 @@ app.post('/api/admin/approve-user', (req, res) => {
   res.json({ message: 'User approved successfully' });
 });
 
+app.post('/api/admin/remove-user', (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'User ID required' });
+  
+  let users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const initialLength = users.length;
+  users = users.filter(u => u.id !== userId);
+  
+  if (users.length === initialLength) return res.status(404).json({ error: 'User not found' });
+  
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  res.json({ message: 'User access removed successfully' });
+});
+
 // POST endpoint to log a new print
 app.post('/api/prints', (req, res) => {
   const { optionType, wardNo, partNo, serialNo, voterName, pagesCount } = req.body;
