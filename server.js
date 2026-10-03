@@ -193,7 +193,10 @@ app.post('/api/admin/remove-user', (req, res) => {
 
 // POST endpoint to log a new print
 app.post('/api/prints', (req, res) => {
-  const { optionType, wardNo, partNo, serialNo, voterName, pagesCount } = req.body;
+  const { 
+    optionType, wardNo, partNo, serialNo, voterName, pagesCount,
+    state, district, assembly, city, panchayat
+  } = req.body;
   
   if (!optionType || !pagesCount) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -218,6 +221,7 @@ app.post('/api/prints', (req, res) => {
     serial_no: serialNo,
     voter_name: voterName,
     pages_count: pagesCount,
+    state, district, assembly, city, panchayat,
     account: accountDetails,
     timestamp: new Date().toISOString()
   };
