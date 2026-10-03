@@ -141,6 +141,14 @@ app.post('/api/login', (req, res) => {
   res.json({ token, role: user.role || 'user', status: user.status });
 });
 
+app.get('/api/me', authMiddleware, (req, res) => {
+  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const user = users.find(u => u.email === req.user.email);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const { passwordHash, ...safeUser } = user;
+  res.json(safeUser);
+});
+
 // Admin User endpoints
 app.get('/api/admin/users', (req, res) => {
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
