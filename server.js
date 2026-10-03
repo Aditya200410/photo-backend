@@ -191,6 +191,28 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
     }
     // Store JSON version for fast access
     fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
+    
+    // Calculate stats
+    let stats = {
+      totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
+      averageAge: 0, totalAge: 0, votersWithAge: 0,
+      ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
+    };
+    for (const v of data) {
+      const gender = (v.MSEX || v.FGENDER || v.SEX || '').toUpperCase();
+      if (gender === 'M' || gender === 'पुरुष') stats.maleVoters++;
+      else if (gender === 'F' || gender === 'स्त्री') stats.femaleVoters++;
+      const age = parseInt(v.MAGE || v.FAGE || v.AGE);
+      if (!isNaN(age) && age > 0 && age < 150) {
+        stats.totalAge += age; stats.votersWithAge++;
+        if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
+        else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
+        else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
+        else if (age > 60) stats.ageBrackets.senior++;
+      }
+    }
+    if (stats.votersWithAge > 0) stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
+    extractedMeta.stats = stats;
   } catch(e) {
     console.error('Error extracting data from excel:', e);
   }
@@ -249,32 +271,18 @@ app.get('/api/analytics', (req, res) => {
       else if (m.category === 'nagar-nigam') stats.nagarNigamFiles++;
       else if (m.category === 'panchayat') stats.panchayatFiles++;
 
-      const jsonFilePath = path.join(__dirname, 'uploads', m.fileName + '.json');
-      if (fs.existsSync(jsonFilePath)) {
-        try {
-          const data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
-          stats.totalVoters += data.length;
-          
-          for (const v of data) {
-            // Determine Gender
-            const gender = (v.MSEX || v.FGENDER || v.SEX || '').toUpperCase();
-            if (gender === 'M' || gender === 'पुरुष') stats.maleVoters++;
-            else if (gender === 'F' || gender === 'स्त्री') stats.femaleVoters++;
-            
-            // Determine Age
-            const age = parseInt(v.MAGE || v.FAGE || v.AGE);
-            if (!isNaN(age) && age > 0 && age < 150) {
-              stats.totalAge += age;
-              stats.votersWithAge++;
-              
-              if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
-              else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
-              else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
-              else if (age > 60) stats.ageBrackets.senior++;
-            }
-          }
-        } catch (e) {
-          console.error("Error reading JSON for analytics:", e);
+      if (m.stats) {
+        stats.totalVoters += m.stats.totalVoters || 0;
+        stats.maleVoters += m.stats.maleVoters || 0;
+        stats.femaleVoters += m.stats.femaleVoters || 0;
+        stats.totalAge += m.stats.totalAge || 0;
+        stats.votersWithAge += m.stats.votersWithAge || 0;
+        
+        if (m.stats.ageBrackets) {
+          stats.ageBrackets.youth += m.stats.ageBrackets.youth || 0;
+          stats.ageBrackets.adult += m.stats.ageBrackets.adult || 0;
+          stats.ageBrackets.middle += m.stats.ageBrackets.middle || 0;
+          stats.ageBrackets.senior += m.stats.ageBrackets.senior || 0;
         }
       }
     }
@@ -335,6 +343,28 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const data = xlsx.utils.sheet_to_json(sheet);
       fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
+      
+      // Calculate stats
+      let stats = {
+        totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
+        averageAge: 0, totalAge: 0, votersWithAge: 0,
+        ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
+      };
+      for (const v of data) {
+        const gender = (v.MSEX || v.FGENDER || v.SEX || '').toUpperCase();
+        if (gender === 'M' || gender === 'पुरुष') stats.maleVoters++;
+        else if (gender === 'F' || gender === 'स्त्री') stats.femaleVoters++;
+        const age = parseInt(v.MAGE || v.FAGE || v.AGE);
+        if (!isNaN(age) && age > 0 && age < 150) {
+          stats.totalAge += age; stats.votersWithAge++;
+          if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
+          else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
+          else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
+          else if (age > 60) stats.ageBrackets.senior++;
+        }
+      }
+      if (stats.votersWithAge > 0) stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
+      updatedEntry.stats = stats;
     } catch(e) {
       console.error('Error processing updated excel to JSON:', e);
     }

@@ -8,7 +8,21 @@
     "district": "New Delhi",
     "assembly": "jha",
     "booth": "123",
-    "timestamp": "2026-09-24T12:04:55.488Z"
+    "timestamp": "2026-09-24T12:04:55.488Z",
+    "stats": {
+      "totalVoters": 310350,
+      "maleVoters": 166769,
+      "femaleVoters": 0,
+      "averageAge": 42,
+      "totalAge": 12960957,
+      "votersWithAge": 307974,
+      "ageBrackets": {
+        "youth": 38187,
+        "adult": 125299,
+        "middle": 99972,
+        "senior": 44516
+      }
+    }
   },
   {
     "id": 1790870006315,
@@ -23,7 +37,21 @@
     "village": "71 N P",
     "panchayat": "Bhompura",
     "timestamp": "2026-10-01T15:54:02.544Z",
-    "state": "AN"
+    "state": "AN",
+    "stats": {
+      "totalVoters": 3264,
+      "maleVoters": 1687,
+      "femaleVoters": 1577,
+      "averageAge": 43,
+      "totalAge": 139960,
+      "votersWithAge": 3264,
+      "ageBrackets": {
+        "youth": 555,
+        "adult": 1096,
+        "middle": 1008,
+        "senior": 605
+      }
+    }
   },
   {
     "id": 1790870069536,
@@ -37,6 +65,20 @@
     "ward": "1",
     "village": "71 N P",
     "panchayat": "Bhompura",
-    "timestamp": "2026-10-01T15:54:29.536Z"
+    "timestamp": "2026-10-01T15:54:29.536Z",
+    "stats": {
+      "totalVoters": 3264,
+      "maleVoters": 1687,
+      "femaleVoters": 1577,
+      "averageAge": 43,
+      "totalAge": 139960,
+      "votersWithAge": 3264,
+      "ageBrackets": {
+        "youth": 555,
+        "adult": 1096,
+        "middle": 1008,
+        "senior": 605
+      }
+    }
   }
 ]
