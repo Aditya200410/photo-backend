@@ -257,7 +257,15 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
   
   if (!fs.existsSync(excelMetaPath)) fs.writeFileSync(excelMetaPath, JSON.stringify([]));
   
-  const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  let metadata = [];
+  try {
+    metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  } catch(e) {
+    console.error('Error parsing metadata:', e);
+    // If metadata file is completely corrupted, backup the file and reset
+    fs.copyFileSync(excelMetaPath, excelMetaPath + '.bak');
+    fs.writeFileSync(excelMetaPath, JSON.stringify([]));
+  }
   
   let extractedMeta = {
     state: req.body.state,
