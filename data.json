@@ -148,5 +148,15 @@
     "voter_name": "MOHAMMAD NADIM",
     "pages_count": 1,
     "timestamp": "2026-10-03T13:02:21.294Z"
+  },
+  {
+    "id": 1791033176300,
+    "option_type": "Option 2",
+    "ward_no": "-",
+    "part_no": "123",
+    "serial_no": 1,
+    "voter_name": "MOHAMMAD NADIM",
+    "pages_count": 1,
+    "timestamp": "2026-10-03T13:12:56.300Z"
   }
 ]

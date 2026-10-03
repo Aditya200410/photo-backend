@@ -543,6 +543,20 @@ app.delete('/api/excel-files/:id', (req, res) => {
 const excelDataCache = new Map(); // Kept for backwards compatibility if needed, but not heavily relied on
 
 // GET endpoint to fetch voters from excel based on location metadata
+// GET endpoint to retrieve all fetch records
+app.get('/api/fetches', authMiddleware, (req, res) => {
+  try {
+    const logsPath = path.join(__dirname, 'fetches.json');
+    if (!fs.existsSync(logsPath)) return res.json([]);
+    const data = JSON.parse(fs.readFileSync(logsPath, 'utf-8'));
+    data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    res.json(data);
+  } catch (err) {
+    console.error('Error reading fetches:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/voters', (req, res) => {
   const { category, state, district, city, assembly, booth, ward, village, panchayat } = req.query;
   if (!fs.existsSync(excelMetaPath)) return res.json({ voters: [] });
@@ -591,6 +605,35 @@ app.get('/api/voters', (req, res) => {
   });
 
   if (matchingFiles.length === 0) return res.json({ error: 'No data found for this location', voters: [] });
+
+  // --- START FETCH LOGGING ---
+  let accountDetails = 'Guest User';
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token && token !== 'DUMMY') {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      accountDetails = decoded.email || 'Guest User';
+    } catch (e) {}
+  }
+  
+  const fetchLogsPath = path.join(__dirname, 'fetches.json');
+  if (!fs.existsSync(fetchLogsPath)) fs.writeFileSync(fetchLogsPath, JSON.stringify([]));
+  try {
+    const fetchLogs = JSON.parse(fs.readFileSync(fetchLogsPath, 'utf-8'));
+    fetchLogs.push({
+      id: Date.now(),
+      category: req.query.category || '-',
+      state: req.query.state || '-',
+      district: req.query.district || '-',
+      assembly: req.query.assembly || '-',
+      ward: ward || '-',
+      booth: booth || '-',
+      account: accountDetails,
+      timestamp: new Date().toISOString()
+    });
+    fs.writeFileSync(fetchLogsPath, JSON.stringify(fetchLogs, null, 2));
+  } catch(e) { console.error('Error logging fetch:', e); }
+  // --- END FETCH LOGGING ---
 
   try {
     let allVoters = [];
