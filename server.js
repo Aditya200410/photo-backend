@@ -143,8 +143,12 @@ app.post('/api/login', (req, res) => {
 
 app.get('/api/me', authMiddleware, (req, res) => {
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  console.log("API /me called. req.user:", req.user);
   const user = users.find(u => u.email === req.user.email);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user) {
+    console.log("User not found in users.json for email:", req.user.email);
+    return res.status(404).json({ error: 'User not found' });
+  }
   const { passwordHash, ...safeUser } = user;
   res.json(safeUser);
 });
