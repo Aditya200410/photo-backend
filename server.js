@@ -262,20 +262,20 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
     const data = xlsx.utils.sheet_to_json(sheet);
     if (data && data.length > 0) {
       const firstRow = data[0];
-      // Override with Excel data if present
-      if (firstRow['ZILLA PARISHAD NAME']) extractedMeta.district = String(firstRow['ZILLA PARISHAD NAME']).trim();
+      // Override with Excel data ONLY if user did not manually provide it
+      if (!extractedMeta.district && firstRow['ZILLA PARISHAD NAME']) extractedMeta.district = String(firstRow['ZILLA PARISHAD NAME']).trim();
       
       // Depending on category, map PANCHAYAT SAMITI to city or assembly
       if (firstRow['PANCHAYAT SAMITI NAME']) {
         const samiti = String(firstRow['PANCHAYAT SAMITI NAME']).trim();
-        extractedMeta.city = samiti;
-        extractedMeta.assembly = samiti;
+        if (!extractedMeta.city) extractedMeta.city = samiti;
+        if (!extractedMeta.assembly) extractedMeta.assembly = samiti;
       }
       
-      if (firstRow['BOOTH_NO']) extractedMeta.booth = String(firstRow['BOOTH_NO']).trim();
-      if (firstRow['WARDNO']) extractedMeta.ward = String(firstRow['WARDNO']).trim();
-      if (firstRow['VILLAGE']) extractedMeta.village = String(firstRow['VILLAGE']).trim();
-      if (firstRow['PANCHAYAT NAME']) extractedMeta.panchayat = String(firstRow['PANCHAYAT NAME']).trim();
+      if (!extractedMeta.booth && firstRow['BOOTH_NO']) extractedMeta.booth = String(firstRow['BOOTH_NO']).trim();
+      if (!extractedMeta.ward && firstRow['WARDNO']) extractedMeta.ward = String(firstRow['WARDNO']).trim();
+      if (!extractedMeta.village && firstRow['VILLAGE']) extractedMeta.village = String(firstRow['VILLAGE']).trim();
+      if (!extractedMeta.panchayat && firstRow['PANCHAYAT NAME']) extractedMeta.panchayat = String(firstRow['PANCHAYAT NAME']).trim();
     }
     // Store JSON version for fast access
     fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
@@ -475,12 +475,12 @@ app.get('/api/voters', (req, res) => {
   // Find matching excel file
   const matchingFiles = metadata.filter(m => {
     let match = m.category === category;
-    if (state && m.state) match = match && m.state === state;
-    if (district && m.district) match = match && m.district === district;
-    if (city && m.city) match = match && m.city === city;
-    if (assembly && m.assembly) match = match && m.assembly === assembly;
-    if (village && m.village) match = match && m.village === village;
-    if (panchayat && m.panchayat) match = match && m.panchayat === panchayat;
+    if (state) match = match && m.state === state;
+    if (district) match = match && m.district === district;
+    if (city) match = match && m.city === city;
+    if (assembly) match = match && m.assembly === assembly;
+    if (village) match = match && m.village === village;
+    if (panchayat) match = match && m.panchayat === panchayat;
     
     // Exact match if provided and no range
     if (booth && !req.query.boothStart) match = match && m.booth === booth;
@@ -569,9 +569,8 @@ app.post('/api/settings/upload-image', upload.single('image'), (req, res) => {
 
   const settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
   
-  // Create absolute URL or relative URL based on app setup
-  // Usually relative path like /api/uploads/filename is better as it works on any host/port
-  const imageUrl = `http://localhost:${PORT}/api/uploads/${req.file.filename}`;
+  const baseUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
+  const imageUrl = `${baseUrl}/api/uploads/${req.file.filename}`;
   
   settings[key] = imageUrl;
   fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
