@@ -485,7 +485,13 @@ app.get('/api/voters', (req, res) => {
   const { category, state, district, city, assembly, booth, ward, village, panchayat } = req.query;
   if (!fs.existsSync(excelMetaPath)) return res.json({ voters: [] });
 
-  const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  let metadata = [];
+  try {
+    metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  } catch(e) {
+    console.error('Error parsing metadata:', e);
+    return res.status(500).json({ error: 'Internal server error reading metadata', voters: [] });
+  }
   // Find matching excel file
   const matchingFiles = metadata.filter(m => {
     let match = m.category === category;
