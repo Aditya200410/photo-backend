@@ -37,7 +37,12 @@ if (!fs.existsSync(dataFilePath)) {
 if (!fs.existsSync(usersFilePath)) {
   // Create default admin: admin123 / admin123
   const defaultAdmin = [{
+    id: 'admin123',
     email: 'admin123',
+    name: 'Admin',
+    phone: '',
+    role: 'admin',
+    status: 'active',
     passwordHash: '$2b$10$.TH8V2wgwIf8Kuz1pZEdF.DHKchynjrV0B8OLK2d.fS4skIaHkgPm'
   }];
   fs.writeFileSync(usersFilePath, JSON.stringify(defaultAdmin, null, 2));
@@ -48,7 +53,8 @@ if (!fs.existsSync(settingsFilePath)) {
     nagarNigamImage: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?q=80&w=2070&auto=format&fit=crop",
     gramPanchayatImage: "https://images.unsplash.com/photo-1592659762303-90081d34b277?q=80&w=2073&auto=format&fit=crop",
     privacyPolicyText: "This is the default privacy policy. Update this in the admin panel.",
-    termsOfServiceText: "These are the default terms of service. Update this in the admin panel."
+    termsOfServiceText: "These are the default terms of service. Update this in the admin panel.",
+    qrCodeImage: "https://via.placeholder.com/200?text=Scan+QR+Code"
   };
   fs.writeFileSync(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
 } else {
@@ -57,6 +63,7 @@ if (!fs.existsSync(settingsFilePath)) {
   let updated = false;
   if (!settings.privacyPolicyText) { settings.privacyPolicyText = "This is the default privacy policy. Update this in the admin panel."; updated = true; }
   if (!settings.termsOfServiceText) { settings.termsOfServiceText = "These are the default terms of service. Update this in the admin panel."; updated = true; }
+  if (!settings.qrCodeImage) { settings.qrCodeImage = "https://via.placeholder.com/200?text=Scan+QR+Code"; updated = true; }
   if (updated) fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
 }
 
@@ -73,6 +80,44 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+app.post('/api/signup', (req, res) => {
+  const { name, phone, email, password } = req.body;
+  if (!name || !phone || !email || !password) return res.status(400).json({ error: 'All fields are required' });
+  
+  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email already exists' });
+  
+  const newUser = {
+    id: Date.now().toString(),
+    name, phone, email,
+    role: 'user',
+    status: 'pending_payment',
+    passwordHash: bcrypt.hashSync(password, 10)
+  };
+  
+  users.push(newUser);
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  res.json({ message: 'Signup successful', userId: newUser.id });
+});
+
+app.post('/api/submit-utr', (req, res) => {
+  const { userId, utr } = req.body;
+  if (!userId || !utr) return res.status(400).json({ error: 'User ID and UTR are required' });
+  
+  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const user = users.find(u => u.id === userId);
+  
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.status !== 'pending_payment' && user.status !== 'pending_approval') {
+    return res.status(400).json({ error: 'Invalid user status' });
+  }
+  
+  user.status = 'pending_approval';
+  user.utr = utr;
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  res.json({ message: 'UTR submitted successfully. Please wait for admin approval.' });
+});
+
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -85,8 +130,39 @@ app.post('/api/login', (req, res) => {
   const isMatch = bcrypt.compareSync(password, user.passwordHash);
   if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
-  const token = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token });
+  if (user.role !== 'admin' && user.status === 'pending_payment') {
+    return res.status(403).json({ error: 'Payment pending', userId: user.id, status: user.status });
+  }
+  if (user.role !== 'admin' && user.status === 'pending_approval') {
+    return res.status(403).json({ error: 'Account pending admin approval', userId: user.id, status: user.status });
+  }
+
+  const token = jwt.sign({ email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token, role: user.role || 'user', status: user.status });
+});
+
+// Admin User endpoints
+app.get('/api/admin/users', (req, res) => {
+  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const safeUsers = users.map(u => {
+    const { passwordHash, ...rest } = u;
+    return rest;
+  });
+  res.json(safeUsers);
+});
+
+app.post('/api/admin/approve-user', (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'User ID required' });
+  
+  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const user = users.find(u => u.id === userId);
+  
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  
+  user.status = 'active';
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  res.json({ message: 'User approved successfully' });
 });
 
 // POST endpoint to log a new print
