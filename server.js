@@ -415,7 +415,12 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
   const fileId = parseInt(req.params.id);
   if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
   
-  let metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  let metadata = [];
+  try {
+    metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  } catch(e) {
+    return res.status(500).json({ error: 'Internal server error reading metadata' });
+  }
   const fileIndex = metadata.findIndex(m => m.id === fileId);
   
   if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
