@@ -8,7 +8,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 const JWT_SECRET = 'supersecretjwtkey_please_change_in_production'; // Simple hardcoded secret
 
 // Middleware
