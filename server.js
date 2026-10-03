@@ -199,6 +199,17 @@ app.post('/api/prints', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  let accountDetails = 'Guest User';
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token && token !== 'DUMMY') {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      accountDetails = decoded.email || 'Guest User';
+    } catch (e) {
+      // ignore invalid tokens for guest prints
+    }
+  }
+
   const newPrint = {
     id: Date.now(),
     option_type: optionType,
@@ -207,6 +218,7 @@ app.post('/api/prints', (req, res) => {
     serial_no: serialNo,
     voter_name: voterName,
     pages_count: pagesCount,
+    account: accountDetails,
     timestamp: new Date().toISOString()
   };
 
