@@ -232,7 +232,13 @@ app.get('/api/analytics', (req, res) => {
     femaleVoters: 0,
     averageAge: 0,
     totalAge: 0, // for internal calculation
-    votersWithAge: 0
+    votersWithAge: 0,
+    ageBrackets: {
+      youth: 0,     // 18-25
+      adult: 0,     // 26-40
+      middle: 0,    // 41-60
+      senior: 0     // 60+
+    }
   };
 
   if (fs.existsSync(excelMetaPath)) {
@@ -260,6 +266,11 @@ app.get('/api/analytics', (req, res) => {
             if (!isNaN(age) && age > 0 && age < 150) {
               stats.totalAge += age;
               stats.votersWithAge++;
+              
+              if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
+              else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
+              else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
+              else if (age > 60) stats.ageBrackets.senior++;
             }
           }
         } catch (e) {
@@ -344,40 +355,74 @@ app.get('/api/voters', (req, res) => {
 
   const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
   // Find matching excel file
-  const matchingFile = metadata.find(m => {
+  const matchingFiles = metadata.filter(m => {
     let match = m.category === category;
     if (state && m.state) match = match && m.state === state;
     if (district && m.district) match = match && m.district === district;
     if (city && m.city) match = match && m.city === city;
     if (assembly && m.assembly) match = match && m.assembly === assembly;
-    if (booth && m.booth) match = match && m.booth === booth;
-    if (ward && m.ward) match = match && m.ward === ward;
     if (village && m.village) match = match && m.village === village;
     if (panchayat && m.panchayat) match = match && m.panchayat === panchayat;
+    
+    // Exact match if provided and no range
+    if (booth && !req.query.boothStart) match = match && m.booth === booth;
+    if (ward && !req.query.wardStart) match = match && m.ward === ward;
+
+    // Range match logic
+    if (req.query.boothStart && req.query.boothEnd && m.booth) {
+      const bStart = parseInt(req.query.boothStart);
+      const bEnd = parseInt(req.query.boothEnd);
+      const mBooth = parseInt(m.booth);
+      if (!isNaN(bStart) && !isNaN(bEnd) && !isNaN(mBooth)) {
+        match = match && mBooth >= bStart && mBooth <= bEnd;
+      }
+    }
+
+    if (req.query.wardStart && req.query.wardEnd && m.ward) {
+      const wStart = parseInt(req.query.wardStart);
+      const wEnd = parseInt(req.query.wardEnd);
+      const mWard = parseInt(m.ward);
+      if (!isNaN(wStart) && !isNaN(wEnd) && !isNaN(mWard)) {
+        match = match && mWard >= wStart && mWard <= wEnd;
+      }
+    }
+
     return match;
   });
 
-  if (!matchingFile) return res.json({ error: 'No data found for this location', voters: [] });
-
-  const filePath = path.join(__dirname, 'uploads', matchingFile.fileName);
-  const jsonFilePath = filePath + '.json';
-  
-  if (!fs.existsSync(filePath) && !fs.existsSync(jsonFilePath)) return res.json({ error: 'Data file not found on disk', voters: [] });
+  if (matchingFiles.length === 0) return res.json({ error: 'No data found for this location', voters: [] });
 
   try {
-    let data;
-    if (fs.existsSync(jsonFilePath)) {
-      data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
-    } else {
-      // Fallback: convert old excel to JSON on first access
-      const wb = xlsx.readFile(filePath);
-      const firstSheet = wb.Sheets[wb.SheetNames[0]];
-      data = xlsx.utils.sheet_to_json(firstSheet);
-      fs.writeFileSync(jsonFilePath, JSON.stringify(data));
+    let allVoters = [];
+    for (const matchingFile of matchingFiles) {
+      const filePath = path.join(__dirname, 'uploads', matchingFile.fileName);
+      const jsonFilePath = filePath + '.json';
+      
+      if (!fs.existsSync(filePath) && !fs.existsSync(jsonFilePath)) continue;
+
+      let data;
+      if (fs.existsSync(jsonFilePath)) {
+        data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
+      } else {
+        const wb = xlsx.readFile(filePath);
+        const firstSheet = wb.Sheets[wb.SheetNames[0]];
+        data = xlsx.utils.sheet_to_json(firstSheet);
+        fs.writeFileSync(jsonFilePath, JSON.stringify(data));
+      }
+      
+      // Inject ward/booth info if missing from row (helps grouping on frontend)
+      data = data.map(row => ({
+        ...row, 
+        _meta_ward: matchingFile.ward, 
+        _meta_booth: matchingFile.booth,
+        _meta_panchayat: matchingFile.panchayat
+      }));
+
+      allVoters = allVoters.concat(data);
     }
-    res.json({ voters: data });
+    res.json({ voters: allVoters });
   } catch (e) {
-    res.status(500).json({ error: 'Failed to read data file', details: e.message });
+    res.status(500).json({ error: 'Failed to read data files', details: e.message });
   }
 });
 
@@ -420,6 +465,35 @@ app.post('/api/settings/upload-image', upload.single('image'), (req, res) => {
 app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });
+
+// Pre-convert any .xlsx files to .json on server startup (useful for Render deployment)
+if (fs.existsSync(excelMetaPath)) {
+  console.log('Checking for unconverted Excel files...');
+  try {
+    const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+    for (const m of metadata) {
+      if (m.fileName) {
+        const filePath = path.join(__dirname, 'uploads', m.fileName);
+        const jsonFilePath = filePath + '.json';
+        if (fs.existsSync(filePath) && !fs.existsSync(jsonFilePath)) {
+          console.log(`Converting ${m.fileName} to JSON...`);
+          try {
+            const wb = xlsx.readFile(filePath);
+            const firstSheet = wb.Sheets[wb.SheetNames[0]];
+            const data = xlsx.utils.sheet_to_json(firstSheet);
+            fs.writeFileSync(jsonFilePath, JSON.stringify(data));
+            console.log(`Successfully converted ${m.fileName}`);
+          } catch (e) {
+            console.error(`Failed to convert ${m.fileName}:`, e.message);
+          }
+        }
+      }
+    }
+    console.log('Excel to JSON startup check complete.');
+  } catch (err) {
+    console.error('Error during startup Excel conversion check:', err);
+  }
+}
 
 // Start the server
 app.listen(PORT, () => {
