@@ -9,7 +9,7 @@
     "phone": "1234567890",
     "email": "adityakumar098k@gmail.com",
     "role": "user",
-    "status": "pending_approval",
+    "status": "active",
     "passwordHash": "$2b$10$PUv4Mmh0Pnx2Y7UpbNOv4OVGUT/OsAujT5n4aF5/CJqhWWUfcBfz6",
     "utr": "1234567890"
   }
