@@ -1093,8 +1093,8 @@ app.get('/api/voters', (req, res) => {
           if (rowS && rowS !== targetS) return false;
         }
 
-        // Panchayat Samiti No filter
-        if (panchayatSamitiNo) {
+        // Panchayat Samiti No filter (only when specific panchayat name is not chosen)
+        if (panchayatSamitiNo && !panchayat) {
           const targetNo = String(panchayatSamitiNo).trim();
           const rowSNo = String(row['PANCHAYAT SAMITI NO'] || '').trim();
           if (rowSNo && rowSNo !== targetNo) return false;
@@ -1107,8 +1107,8 @@ app.get('/api/voters', (req, res) => {
           if (rowZ && rowZ !== targetZ) return false;
         }
 
-        // Zilla Parishad No filter
-        if (zillaParishadNo) {
+        // Zilla Parishad No filter (only when specific panchayat/samiti is not chosen)
+        if (zillaParishadNo && !panchayat && !panchayatSamiti && !city) {
           const targetNo = String(zillaParishadNo).trim();
           const rowZNo = String(row['ZILLA PARISHAD NO'] || '').trim();
           if (rowZNo && rowZNo !== targetNo) return false;
