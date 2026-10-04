@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -278,6 +279,322 @@ const upload = multer({ storage });
 
 const excelMetaPath = path.join(__dirname, 'excel-metadata.json');
 
+require('./patch-exceljs');
+
+// --- EXCEL DATA NORMALIZATION & EXTRACTION HELPERS ---
+function getField(row, candidateKeys, fallback = '') {
+  if (!row || typeof row !== 'object') return fallback;
+  for (const k of candidateKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+      return row[k];
+    }
+  }
+  return fallback;
+}
+
+function normalizeVoterRow(row) {
+  if (!row || typeof row !== 'object') return row;
+
+  const zillaName = getField(row, [
+    'ZILLA PARISHAD NAME', 'ZILLA PARISHAD', 'ZILLA', 'FJPNAME', 'JPNAME',
+    'जिला परिषद नाम', 'जिला परिषद', 'जिला परिषद्', 'जिला', 'DISTRICT', 'District'
+  ]);
+  const zillaNo = getField(row, [
+    'ZILLA PARISHAD NO', 'ZILLA_NO', 'ZP_NO', 'FJPNO', 'JPNO',
+    'जिला परिषद संख्या', 'जिला परिषद नं', 'जिला परिषद क्र', 'जिला परिषद क्र.'
+  ]);
+
+  const samitiName = getField(row, [
+    'PANCHAYAT SAMITI NAME', 'PANCHAYAT SAMITI', 'SAMITI', 'FPSNAME', 'PSNAME',
+    'पंचायत समिति नाम', 'पंचायत समिति', 'समिति नाम', 'समिति', 'ब्लॉक', 'तहसील', 'CITY', 'City', 'BLOCK'
+  ]);
+  const samitiNo = getField(row, [
+    'PANCHAYAT SAMITI NO', 'SAMITI_NO', 'PS_NO', 'FPSNO', 'PSNO',
+    'पंचायत समिति संख्या', 'पंचायत समिति नं', 'पंचायत समिति क्र', 'पंचायत समिति क्र.'
+  ]);
+
+  const panchayatName = getField(row, [
+    'PANCHAYAT NAME', 'PANCHAYAT', 'FGRAMPANCHAYAT', 'GRAMPANCHAYAT', 'GRAM PANCHAYAT',
+    'ग्राम पंचायत नाम', 'ग्राम पंचायत', 'पंचायत नाम', 'पंचायत'
+  ]);
+
+  const wardNo = getField(row, [
+    'WARDNO', 'WARD_NO', 'WARD NO', 'WARD', 'NWARDNO', 'PANCHAYAT WARD NO', 'PANCHAYAT_WARD_NO',
+    'वार्ड नं', 'वार्ड नंबर', 'वार्ड संख्या', 'वार्ड क्र', 'वार्ड क्र.', 'वार्ड'
+  ]);
+
+  const boothNo = getField(row, [
+    'BOOTH_NO', 'BOOTH NO', 'BOOTH_N', 'BOOTHNO', 'BOOTH', 'FPOLLINGNO', 'POLLINGNO', 'POLLING_NO',
+    'बूथ नं', 'बूथ संख्या', 'बूथ', 'मतदान केंद्र संख्या'
+  ]);
+  const partNo = getField(row, [
+    'PARTNO', 'PART_NO', 'PART NO', 'PART', 'भाग संख्या', 'FPOLLINGNO'
+  ]) || boothNo;
+
+  const psEn = getField(row, ['PS_EN', 'POLLINGSTATION', 'POLLING_STATION', 'POLLING STATION']);
+  const psHi = getField(row, [
+    'PS_HI', 'POOLINGSTATION', 'मतदान केंद्र', 'मतदान केंद्र का नाम', 'मतदान स्थल', 'POLLINGSTATION'
+  ]) || psEn;
+
+  const serialNo = getField(row, [
+    'SERIAL_NO', 'SERIAL NO', 'SERIAL', 'SRNO', 'SR_NO', 'SLNO',
+    'क्रम संख्या', 'सरल क्रमांक', 'क्र. सं.', 'क्र सं', 'क्र.'
+  ]);
+
+  const idcard = String(getField(row, [
+    'IDCARD', 'ID_CARD', 'ID CARD', 'VID', 'EPIC_NO', 'EPIC', 'EPIC NO', 'idcard',
+    'पहचान पत्र', 'मतदाता पहचान पत्र', 'एपिक', 'पहचान पत्र क्रमांक'
+  ])).trim();
+
+  const vFnameEn = getField(row, ['V_FNAME_EN', 'EFVNAME', 'EVNAME', 'VOTER_NAME_EN', 'NAME_EN', 'V_FNAME']);
+  const vLnameEn = getField(row, ['V_LNAME_EN', 'ELVNAME', 'LNAME_EN', 'V_LNAME']);
+  const vFnameHi = getField(row, ['V_FNAME_HI', 'FVNAME', 'VOTER_NAME_HI', 'NAME_HI', 'मतदाता का नाम', 'मतदाता नाम', 'नाम']);
+  const vLnameHi = getField(row, ['V_LNAME_HI']);
+
+  const vrFnameEn = getField(row, ['VR_FNAME_EN', 'EFRNAME', 'ERNAME', 'RELATIVE_NAME_EN', 'FATHER_NAME_EN', 'VR_FNAME']);
+  const vrLnameEn = getField(row, ['VR_LNAME_EN', 'ELRNAME', 'LNAME_REL_EN', 'VR_LNAME']);
+  const vrFnameHi = getField(row, [
+    'VR_FNAME_HI', 'FRNAME', 'RELATIVE_NAME_HI', 'संबंधी का नाम', 'संबंधी नाम', 'पिता का नाम', 'पति का नाम', 'पिता/पति का नाम'
+  ]);
+  const vrLnameHi = getField(row, ['VR_LNAME_HI']);
+
+  let relation = getField(row, ['RELATION', 'FRELATION', 'संबंध', 'रिश्ता']);
+  if (relation === 'H') relation = 'पति (Husband)';
+  else if (relation === 'F') relation = 'पिता (Father)';
+  else if (relation === 'M') relation = 'माता (Mother)';
+  else if (relation === 'W') relation = 'पत्नी (Wife)';
+
+  const age = getField(row, ['AGE', 'FAGE', 'MAGE', 'आयु', 'उम्र']);
+  
+  let sex = getField(row, ['SEX', 'GENDER', 'FGENDER', 'MSEX', 'लिंग']);
+  const sexUpper = String(sex).trim().toUpperCase();
+  if (sexUpper === 'M' || sexUpper === 'MALE' || sex === 'पुरुष') sex = 'पुरुष';
+  else if (sexUpper === 'F' || sexUpper === 'FEMALE' || sex === 'स्त्री' || sex === 'महिला') sex = 'महिला';
+
+  const houseNo = getField(row, ['HOUSE_NO', 'HOUSE NO', 'FHOUSENO', 'HOUSENO', 'मकान संख्या', 'मकान नं', 'गृह संख्या', 'घर संख्या']);
+  const village = getField(row, ['VILLAGE', 'LOCATION', 'SECTION', 'गांव', 'ग्राम', 'स्थान', 'मोहल्ला', 'अनुभाग', 'पता']);
+  const section = getField(row, ['SECTION', 'अनुभाग']);
+  const pincode = getField(row, ['PINCODE', 'PIN', 'पिनकोड']);
+  const mobile = getField(row, ['MOBILE_1', 'MOBILE_NO', 'MOBILE', 'PHONE', 'मोबाइल']);
+  const videoLink = getField(row, ['VIDEO_LINK', 'VIDEO_URL', 'VIDEO']);
+  const pcName = getField(row, ['PC NAME', 'PC_NAME', 'लोकसभा क्षेत्र', 'संसदीय क्षेत्र']);
+  const pcNo = getField(row, ['PC NO', 'PC_NO']);
+  const image = getField(row, ['IMAGE', 'PHOTO', 'फोटो']);
+
+  return {
+    ...row,
+    PS_EN: psEn,
+    PS_HI: psHi,
+    IDCARD: idcard,
+    WARDNO: wardNo,
+    PARTNO: partNo || (boothNo || ''),
+    BOOTH_NO: boothNo || (partNo || ''),
+    SERIAL_NO: serialNo,
+    IMAGE: image,
+    V_FNAME_EN: vFnameEn,
+    V_LNAME_EN: vLnameEn,
+    V_FNAME_HI: vFnameHi,
+    V_LNAME_HI: vLnameHi,
+    VR_FNAME_EN: vrFnameEn,
+    VR_LNAME_EN: vrLnameEn,
+    VR_FNAME_HI: vrFnameHi,
+    VR_LNAME_HI: vrLnameHi,
+    RELATION: relation,
+    AGE: age,
+    SEX: sex,
+    HOUSE_NO: String(houseNo),
+    VILLAGE: village,
+    SECTION: section,
+    PINCODE: pincode,
+    MOBILE_1: mobile,
+    VIDEO_LINK: videoLink,
+    'ZILLA PARISHAD NAME': zillaName,
+    'ZILLA PARISHAD NO': zillaNo,
+    'PANCHAYAT SAMITI NAME': samitiName,
+    'PANCHAYAT SAMITI NO': samitiNo,
+    'PANCHAYAT NAME': panchayatName,
+    'PANCHAYAT WARD NO': getField(row, ['PANCHAYAT WARD NO']) || wardNo,
+    'PC NAME': pcName,
+    'PC NO': pcNo
+  };
+}
+
+function calculateVoterStats(data) {
+  let stats = {
+    totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
+    averageAge: 0, totalAge: 0, votersWithAge: 0,
+    ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
+  };
+  for (const v of data) {
+    const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
+    if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
+    else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
+    const age = parseInt(v.MAGE || v.FAGE || v.AGE);
+    if (!isNaN(age) && age > 0 && age < 150) {
+      stats.totalAge += age; stats.votersWithAge++;
+      if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
+      else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
+      else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
+      else if (age > 60) stats.ageBrackets.senior++;
+    }
+  }
+  if (stats.votersWithAge > 0) stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
+  return stats;
+}
+
+function extractMetadataFromData(data, manualMeta = {}, category = 'general') {
+  if (!data || data.length === 0) return { ...manualMeta };
+
+  const wardsSet = new Set();
+  const boothsSet = new Set();
+  const panchayatsSet = new Set();
+  const villagesSet = new Set();
+  const samitisSet = new Set();
+  const samitiNosSet = new Set();
+  const zillasSet = new Set();
+  const zillaNosSet = new Set();
+  const pcNamesSet = new Set();
+  const pcNosSet = new Set();
+
+  const panchayatMap = {};
+  const villageMap = {};
+
+  for (const row of data) {
+    const ward = row.WARDNO !== undefined && row.WARDNO !== null && String(row.WARDNO).trim() !== ''
+      ? String(row.WARDNO).trim()
+      : (row['PANCHAYAT WARD NO'] !== undefined && String(row['PANCHAYAT WARD NO']).trim() !== '' ? String(row['PANCHAYAT WARD NO']).trim() : '');
+    if (ward) wardsSet.add(ward);
+
+    const booth = row.BOOTH_NO !== undefined && row.BOOTH_NO !== null && String(row.BOOTH_NO).trim() !== ''
+      ? String(row.BOOTH_NO).trim()
+      : (row.PARTNO !== undefined && String(row.PARTNO).trim() !== '' ? String(row.PARTNO).trim() : '');
+    if (booth) boothsSet.add(booth);
+
+    const panchayat = String(row['PANCHAYAT NAME'] || row.PANCHAYAT || '').trim();
+    if (panchayat) panchayatsSet.add(panchayat);
+
+    const village = String(row.VILLAGE || '').trim();
+    if (village) villagesSet.add(village);
+
+    const samiti = String(row['PANCHAYAT SAMITI NAME'] || row['PANCHAYAT SAMITI'] || row.SAMITI || '').trim();
+    if (samiti) samitisSet.add(samiti);
+
+    const samitiNo = row['PANCHAYAT SAMITI NO'] !== undefined && row['PANCHAYAT SAMITI NO'] !== null ? String(row['PANCHAYAT SAMITI NO']).trim() : '';
+    if (samitiNo) samitiNosSet.add(samitiNo);
+
+    const zilla = String(row['ZILLA PARISHAD NAME'] || row['ZILLA PARISHAD'] || row.ZILLA || '').trim();
+    if (zilla) zillasSet.add(zilla);
+
+    const zillaNo = row['ZILLA PARISHAD NO'] !== undefined && row['ZILLA PARISHAD NO'] !== null ? String(row['ZILLA PARISHAD NO']).trim() : '';
+    if (zillaNo) zillaNosSet.add(zillaNo);
+
+    const pcName = String(row['PC NAME'] || '').trim();
+    if (pcName) pcNamesSet.add(pcName);
+
+    const pcNo = row['PC NO'] !== undefined && row['PC NO'] !== null ? String(row['PC NO']).trim() : '';
+    if (pcNo) pcNosSet.add(pcNo);
+
+    // Grouping for hierarchy
+    const pKey = panchayat || 'General';
+    if (!panchayatMap[pKey]) {
+      panchayatMap[pKey] = {
+        villages: new Set(),
+        wards: new Set(),
+        booths: new Set(),
+        samiti: samiti || '',
+        samitiNo: samitiNo || '',
+        zilla: zilla || '',
+        zillaNo: zillaNo || ''
+      };
+    }
+    if (village) panchayatMap[pKey].villages.add(village);
+    if (ward) panchayatMap[pKey].wards.add(ward);
+    if (booth) panchayatMap[pKey].booths.add(booth);
+
+    if (village) {
+      if (!villageMap[village]) {
+        villageMap[village] = { wards: new Set(), booths: new Set(), panchayat: pKey };
+      }
+      if (ward) villageMap[village].wards.add(ward);
+      if (booth) villageMap[village].booths.add(booth);
+    }
+  }
+
+  const sortNumeric = (arr) => arr.sort((a, b) => {
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return String(a).localeCompare(String(b));
+  });
+
+  const wards = sortNumeric(Array.from(wardsSet));
+  const booths = sortNumeric(Array.from(boothsSet));
+  const panchayats = Array.from(panchayatsSet);
+  const villages = Array.from(villagesSet);
+  const panchayatSamitis = Array.from(samitisSet);
+  const panchayatSamitiNos = sortNumeric(Array.from(samitiNosSet));
+  const zillaParishads = Array.from(zillasSet);
+  const zillaParishadNos = sortNumeric(Array.from(zillaNosSet));
+  const pcNames = Array.from(pcNamesSet);
+  const pcNos = sortNumeric(Array.from(pcNosSet));
+
+  const hierarchy = {};
+  for (const [pKey, pVal] of Object.entries(panchayatMap)) {
+    hierarchy[pKey] = {
+      villages: Array.from(pVal.villages),
+      wards: sortNumeric(Array.from(pVal.wards)),
+      booths: sortNumeric(Array.from(pVal.booths)),
+      samiti: pVal.samiti,
+      samitiNo: pVal.samitiNo,
+      zilla: pVal.zilla,
+      zillaNo: pVal.zillaNo
+    };
+  }
+
+  const villageHierarchy = {};
+  for (const [vKey, vVal] of Object.entries(villageMap)) {
+    villageHierarchy[vKey] = {
+      wards: sortNumeric(Array.from(vVal.wards)),
+      booths: sortNumeric(Array.from(vVal.booths)),
+      panchayat: vVal.panchayat
+    };
+  }
+
+  const primaryDistrict = manualMeta.district || zillaParishads[0] || '';
+  const primarySamiti = manualMeta.city || panchayatSamitis[0] || '';
+  const primaryPanchayat = manualMeta.panchayat || panchayats[0] || '';
+  const primaryVillage = manualMeta.village || villages[0] || '';
+  const primaryWard = manualMeta.ward || wards[0] || '';
+  const primaryBooth = manualMeta.booth || booths[0] || '';
+
+  return {
+    state: manualMeta.state || 'Rajasthan',
+    district: primaryDistrict,
+    city: primarySamiti,
+    assembly: manualMeta.assembly || primarySamiti || pcNames[0] || '',
+    panchayat: primaryPanchayat,
+    village: primaryVillage,
+    ward: primaryWard,
+    booth: primaryBooth,
+    panchayatSamiti: panchayatSamitis[0] || primarySamiti,
+    panchayatSamitiNo: panchayatSamitiNos[0] || '',
+    zillaParishad: zillaParishads[0] || primaryDistrict,
+    zillaParishadNo: zillaParishadNos[0] || '',
+    wards,
+    booths,
+    panchayats,
+    villages,
+    panchayatSamitis,
+    panchayatSamitiNos,
+    zillaParishads,
+    zillaParishadNos,
+    pcNames,
+    pcNos,
+    hierarchy,
+    villageHierarchy
+  };
+}
+
 app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const category = req.body.category || 'general';
@@ -289,7 +606,6 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
     metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
   } catch(e) {
     console.error('Error parsing metadata:', e);
-    // If metadata file is completely corrupted, backup the file and reset
     fs.copyFileSync(excelMetaPath, excelMetaPath + '.bak');
     fs.writeFileSync(excelMetaPath, JSON.stringify([]));
   }
@@ -308,48 +624,20 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
   try {
     const wb = xlsx.readFile(req.file.path);
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const data = xlsx.utils.sheet_to_json(sheet);
-    if (data && data.length > 0) {
-      const firstRow = data[0];
-      // Override with Excel data ONLY if user did not manually provide it
-      if (!extractedMeta.district && firstRow['ZILLA PARISHAD NAME']) extractedMeta.district = String(firstRow['ZILLA PARISHAD NAME']).trim();
-      
-      // Depending on category, map PANCHAYAT SAMITI to city or assembly
-      if (firstRow['PANCHAYAT SAMITI NAME']) {
-        const samiti = String(firstRow['PANCHAYAT SAMITI NAME']).trim();
-        if (!extractedMeta.city) extractedMeta.city = samiti;
-        if (!extractedMeta.assembly) extractedMeta.assembly = samiti;
-      }
-      
-      if (!extractedMeta.booth && firstRow['BOOTH_NO']) extractedMeta.booth = String(firstRow['BOOTH_NO']).trim();
-      if (!extractedMeta.ward && firstRow['WARDNO']) extractedMeta.ward = String(firstRow['WARDNO']).trim();
-      if (!extractedMeta.village && firstRow['VILLAGE']) extractedMeta.village = String(firstRow['VILLAGE']).trim();
-      if (!extractedMeta.panchayat && firstRow['PANCHAYAT NAME']) extractedMeta.panchayat = String(firstRow['PANCHAYAT NAME']).trim();
-    }
-    // Store JSON version for fast access
-    fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
+    const rawData = xlsx.utils.sheet_to_json(sheet);
+    
+    // Normalize rows to standardize column names
+    const cleanData = rawData.map(normalizeVoterRow);
+    
+    // Extract multi-ward, multi-booth, panchayat, samiti, zilla hierarchy
+    const autoMeta = extractMetadataFromData(cleanData, extractedMeta, category);
+    extractedMeta = { ...extractedMeta, ...autoMeta };
+
+    // Store normalized JSON version for fast access
+    fs.writeFileSync(req.file.path + '.json', JSON.stringify(cleanData));
     
     // Calculate stats
-    let stats = {
-      totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
-      averageAge: 0, totalAge: 0, votersWithAge: 0,
-      ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
-    };
-    for (const v of data) {
-      const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
-      if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
-      else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
-      const age = parseInt(v.MAGE || v.FAGE || v.AGE);
-      if (!isNaN(age) && age > 0 && age < 150) {
-        stats.totalAge += age; stats.votersWithAge++;
-        if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
-        else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
-        else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
-        else if (age > 60) stats.ageBrackets.senior++;
-      }
-    }
-    if (stats.votersWithAge > 0) stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
-    extractedMeta.stats = stats;
+    extractedMeta.stats = calculateVoterStats(cleanData);
   } catch(e) {
     console.error('Error extracting data from excel:', e);
   }
@@ -533,30 +821,14 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
     try {
       const wb = xlsx.readFile(req.file.path);
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const data = xlsx.utils.sheet_to_json(sheet);
-      fs.writeFileSync(req.file.path + '.json', JSON.stringify(data));
+      const rawData = xlsx.utils.sheet_to_json(sheet);
+      const cleanData = rawData.map(normalizeVoterRow);
       
-      // Calculate stats
-      let stats = {
-        totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
-        averageAge: 0, totalAge: 0, votersWithAge: 0,
-        ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
-      };
-      for (const v of data) {
-        const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
-        if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
-        else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
-        const age = parseInt(v.MAGE || v.FAGE || v.AGE);
-        if (!isNaN(age) && age > 0 && age < 150) {
-          stats.totalAge += age; stats.votersWithAge++;
-          if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
-          else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
-          else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
-          else if (age > 60) stats.ageBrackets.senior++;
-        }
-      }
-      if (stats.votersWithAge > 0) stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
-      updatedEntry.stats = stats;
+      const autoMeta = extractMetadataFromData(cleanData, updatedEntry, updatedEntry.category || 'general');
+      updatedEntry = { ...updatedEntry, ...autoMeta };
+
+      fs.writeFileSync(req.file.path + '.json', JSON.stringify(cleanData));
+      updatedEntry.stats = calculateVoterStats(cleanData);
     } catch(e) {
       console.error('Error processing updated excel to JSON:', e);
     }
@@ -630,7 +902,10 @@ app.get('/api/fetches', authMiddleware, (req, res) => {
 });
 
 app.get('/api/voters', (req, res) => {
-  const { category, state, district, city, assembly, booth, ward, village, panchayat } = req.query;
+  const { 
+    category, state, district, city, assembly, booth, ward, village, panchayat,
+    panchayatSamiti, panchayatSamitiNo, zillaParishad, zillaParishadNo 
+  } = req.query;
   if (!fs.existsSync(excelMetaPath)) return res.json({ voters: [] });
 
   let metadata = [];
@@ -640,21 +915,63 @@ app.get('/api/voters', (req, res) => {
     console.error('Error parsing metadata:', e);
     return res.status(500).json({ error: 'Internal server error reading metadata', voters: [] });
   }
-  // Find matching excel file
+  
+  // Find matching excel files
   const matchingFiles = metadata.filter(m => {
     let match = m.category === category;
-    if (state) match = match && m.state === state;
-    if (district) match = match && m.district === district;
-    if (city) match = match && m.city === city;
-    if (assembly) match = match && m.assembly === assembly;
-    if (village) match = match && m.village === village;
-    if (panchayat) match = match && m.panchayat === panchayat;
+    if (state && m.state) {
+      match = match && m.state.toLowerCase() === state.toLowerCase();
+    }
     
-    // Exact match if provided and no range
-    if (booth && !req.query.boothStart) match = match && m.booth === booth;
-    if (ward && !req.query.wardStart) match = match && m.ward === ward;
+    // District / Zilla Parishad match
+    if (district || zillaParishad) {
+      const targetZ = (zillaParishad || district).toLowerCase();
+      const zillas = (m.zillaParishads || [m.zillaParishad, m.district]).filter(Boolean).map(s => String(s).toLowerCase());
+      match = match && zillas.some(z => z === targetZ || z.includes(targetZ) || targetZ.includes(z));
+    }
+    
+    // City / Panchayat Samiti match
+    if (city || panchayatSamiti) {
+      const targetS = (panchayatSamiti || city).toLowerCase();
+      const samitis = (m.panchayatSamitis || [m.panchayatSamiti, m.city, m.assembly]).filter(Boolean).map(s => String(s).toLowerCase());
+      match = match && samitis.some(s => s === targetS || s.includes(targetS) || targetS.includes(s));
+    }
 
-    // Range match logic
+    if (assembly && !city && !panchayatSamiti) {
+      match = match && (m.assembly === assembly || (m.panchayatSamitis && m.panchayatSamitis.includes(assembly)));
+    }
+
+    // Panchayat match
+    if (panchayat) {
+      const p = panchayat.toLowerCase();
+      const pList = (m.panchayats || [m.panchayat]).filter(Boolean).map(s => String(s).toLowerCase());
+      match = match && pList.some(item => item === p || item.includes(p) || p.includes(item));
+    }
+
+    // Village match (optional: only if specific village requested and file has villages list)
+    if (village && m.villages && m.villages.length > 0) {
+      match = match && m.villages.some(v => String(v).toLowerCase() === village.toLowerCase());
+    }
+
+    // Ward match (if file has wards list, check if ward is in m.wards)
+    if (ward && !req.query.wardStart) {
+      if (m.wards && m.wards.length > 0) {
+        match = match && m.wards.some(w => String(w) === String(ward));
+      } else if (m.ward) {
+        match = match && String(m.ward) === String(ward);
+      }
+    }
+
+    // Booth match
+    if (booth && !req.query.boothStart) {
+      if (m.booths && m.booths.length > 0) {
+        match = match && m.booths.some(b => String(b) === String(booth));
+      } else if (m.booth) {
+        match = match && String(m.booth) === String(booth);
+      }
+    }
+
+    // Range match logic on metadata level if single-ward file
     if (req.query.boothStart && req.query.boothEnd && m.booth) {
       const bStart = parseInt(req.query.boothStart);
       const bEnd = parseInt(req.query.boothEnd);
@@ -696,8 +1013,10 @@ app.get('/api/voters', (req, res) => {
       id: Date.now(),
       category: req.query.category || '-',
       state: req.query.state || '-',
-      district: req.query.district || '-',
-      assembly: req.query.assembly || '-',
+      district: district || zillaParishad || '-',
+      assembly: req.query.assembly || panchayatSamiti || city || '-',
+      panchayat: panchayat || '-',
+      village: village || '-',
       ward: ward || '-',
       booth: booth || '-',
       account: accountDetails,
@@ -712,25 +1031,136 @@ app.get('/api/voters', (req, res) => {
     for (const matchingFile of matchingFiles) {
       const filePath = path.join(__dirname, 'uploads', matchingFile.fileName);
       const jsonFilePath = filePath + '.json';
+      const partDir = filePath + '_panchayats';
       
-      if (!fs.existsSync(filePath) && !fs.existsSync(jsonFilePath)) continue;
-
-      let data;
-      if (fs.existsSync(jsonFilePath)) {
+      let data = [];
+      if (fs.existsSync(partDir)) {
+        const indexPath = path.join(partDir, '_index.json');
+        if (fs.existsSync(indexPath)) {
+          const pIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+          if (panchayat) {
+            const targetP = Object.keys(pIndex).find(k => k.trim().toLowerCase() === panchayat.trim().toLowerCase());
+            if (targetP && pIndex[targetP]?.file) {
+              const pFile = path.join(partDir, pIndex[targetP].file);
+              if (fs.existsSync(pFile)) {
+                data = JSON.parse(fs.readFileSync(pFile, 'utf-8'));
+              }
+            }
+          } else if (panchayatSamiti || city) {
+            const targetS = (panchayatSamiti || city).trim().toLowerCase();
+            for (const [pName, info] of Object.entries(pIndex)) {
+              if (info.samiti && info.samiti.trim().toLowerCase() === targetS) {
+                const pFile = path.join(partDir, info.file);
+                if (fs.existsSync(pFile)) {
+                  data = data.concat(JSON.parse(fs.readFileSync(pFile, 'utf-8')));
+                }
+              }
+            }
+          } else {
+            // If neither panchayat nor samiti specified, return first few panchayats to avoid memory exhaustion
+            for (const [pName, info] of Object.entries(pIndex).slice(0, 5)) {
+              const pFile = path.join(partDir, info.file);
+              if (fs.existsSync(pFile)) {
+                data = data.concat(JSON.parse(fs.readFileSync(pFile, 'utf-8')));
+              }
+            }
+          }
+        }
+      } else if (fs.existsSync(jsonFilePath)) {
         data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
-      } else {
+      } else if (fs.existsSync(filePath)) {
         const wb = xlsx.readFile(filePath);
         const firstSheet = wb.Sheets[wb.SheetNames[0]];
-        data = xlsx.utils.sheet_to_json(firstSheet);
+        const rawData = xlsx.utils.sheet_to_json(firstSheet);
+        data = rawData.map(normalizeVoterRow);
         fs.writeFileSync(jsonFilePath, JSON.stringify(data));
+      } else {
+        continue;
       }
       
-      // Inject ward/booth info if missing from row (helps grouping on frontend)
+      // Filter rows inside this file based on selected parameters
+      data = data.filter(row => {
+        // Panchayat Name filter
+        if (panchayat) {
+          const rowP = String(row['PANCHAYAT NAME'] || row.PANCHAYAT || row._meta_panchayat || '').trim().toLowerCase();
+          if (rowP && rowP !== panchayat.trim().toLowerCase()) return false;
+        }
+
+        // Panchayat Samiti Name filter
+        if (panchayatSamiti || city) {
+          const targetS = (panchayatSamiti || city).trim().toLowerCase();
+          const rowS = String(row['PANCHAYAT SAMITI NAME'] || row.SAMITI || '').trim().toLowerCase();
+          if (rowS && rowS !== targetS) return false;
+        }
+
+        // Panchayat Samiti No filter
+        if (panchayatSamitiNo) {
+          const targetNo = String(panchayatSamitiNo).trim();
+          const rowSNo = String(row['PANCHAYAT SAMITI NO'] || '').trim();
+          if (rowSNo && rowSNo !== targetNo) return false;
+        }
+
+        // Zilla Parishad Name filter
+        if (zillaParishad || district) {
+          const targetZ = (zillaParishad || district).trim().toLowerCase();
+          const rowZ = String(row['ZILLA PARISHAD NAME'] || '').trim().toLowerCase();
+          if (rowZ && rowZ !== targetZ) return false;
+        }
+
+        // Zilla Parishad No filter
+        if (zillaParishadNo) {
+          const targetNo = String(zillaParishadNo).trim();
+          const rowZNo = String(row['ZILLA PARISHAD NO'] || '').trim();
+          if (rowZNo && rowZNo !== targetNo) return false;
+        }
+
+        // Village filter
+        if (village) {
+          const rowV = String(row.VILLAGE || row._meta_village || '').trim().toLowerCase();
+          if (rowV && rowV !== village.trim().toLowerCase()) return false;
+        }
+
+        // Ward filter
+        if (ward && !req.query.wardStart) {
+          const rowW = String(row.WARDNO !== undefined && row.WARDNO !== null ? row.WARDNO : (row['PANCHAYAT WARD NO'] ?? row._meta_ward ?? '')).trim();
+          if (rowW && rowW !== String(ward).trim()) return false;
+        }
+
+        // Booth filter
+        if (booth && !req.query.boothStart) {
+          const rowB = String(row.BOOTH_NO !== undefined && row.BOOTH_NO !== null ? row.BOOTH_NO : (row.PARTNO ?? row._meta_booth ?? '')).trim();
+          if (rowB && rowB !== String(booth).trim()) return false;
+        }
+
+        // Ward range
+        if (req.query.wardStart && req.query.wardEnd) {
+          const rowWard = parseInt(row.WARDNO || row['PANCHAYAT WARD NO']);
+          const wStart = parseInt(req.query.wardStart);
+          const wEnd = parseInt(req.query.wardEnd);
+          if (!isNaN(rowWard) && !isNaN(wStart) && !isNaN(wEnd)) {
+            if (rowWard < wStart || rowWard > wEnd) return false;
+          }
+        }
+
+        // Booth range
+        if (req.query.boothStart && req.query.boothEnd) {
+          const rowBooth = parseInt(row.BOOTH_NO || row.PARTNO);
+          const bStart = parseInt(req.query.boothStart);
+          const bEnd = parseInt(req.query.boothEnd);
+          if (!isNaN(rowBooth) && !isNaN(bStart) && !isNaN(bEnd)) {
+            if (rowBooth < bStart || rowBooth > bEnd) return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Inject ward/booth/panchayat info if missing from row
       data = data.map(row => ({
         ...row, 
-        _meta_ward: matchingFile.ward, 
-        _meta_booth: matchingFile.booth,
-        _meta_panchayat: matchingFile.panchayat
+        _meta_ward: row.WARDNO || matchingFile.ward, 
+        _meta_booth: row.BOOTH_NO || matchingFile.booth,
+        _meta_panchayat: row['PANCHAYAT NAME'] || matchingFile.panchayat
       }));
 
       allVoters = allVoters.concat(data);
@@ -759,7 +1189,6 @@ app.post('/api/settings/upload-image', upload.single('image'), (req, res) => {
   const key = req.body.key;
   
   if (!['assemblyImage', 'nagarNigamImage', 'gramPanchayatImage'].includes(key)) {
-    // try to delete the uploaded file since it's invalid
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: 'Invalid key' });
   }
@@ -780,34 +1209,83 @@ app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// Pre-convert any .xlsx files to .json on server startup (useful for Render deployment)
-if (fs.existsSync(excelMetaPath)) {
-  console.log('Checking for unconverted Excel files...');
+// Startup check & automatic metadata / JSON enrichment for uploaded files
+function refreshExcelMetadata() {
+  if (!fs.existsSync(excelMetaPath)) fs.writeFileSync(excelMetaPath, JSON.stringify([]));
   try {
-    const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-    for (const m of metadata) {
-      if (m.fileName) {
-        const filePath = path.join(__dirname, 'uploads', m.fileName);
+    let metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+    let changed = false;
+
+    const uploadsDir = path.join(__dirname, 'uploads');
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir).filter(f => f.endsWith('.xlsx'));
+      for (const fileName of files) {
+        const filePath = path.join(uploadsDir, fileName);
         const jsonFilePath = filePath + '.json';
-        if (fs.existsSync(filePath) && !fs.existsSync(jsonFilePath)) {
-          console.log(`Converting ${m.fileName} to JSON...`);
+        
+        let existingIndex = metadata.findIndex(m => m.fileName === fileName);
+        let m = existingIndex !== -1 ? metadata[existingIndex] : null;
+
+        const partDir = filePath + '_panchayats';
+        if (fs.existsSync(partDir)) {
+          continue;
+        }
+
+        // Only process if metadata or processed cache is missing
+        if (!m || (!fs.existsSync(jsonFilePath) && !fs.existsSync(partDir))) {
+          console.log(`Analyzing and auto-enriching metadata for ${fileName}...`);
           try {
             const wb = xlsx.readFile(filePath);
-            const firstSheet = wb.Sheets[wb.SheetNames[0]];
-            const data = xlsx.utils.sheet_to_json(firstSheet);
-            fs.writeFileSync(jsonFilePath, JSON.stringify(data));
-            console.log(`Successfully converted ${m.fileName}`);
-          } catch (e) {
-            console.error(`Failed to convert ${m.fileName}:`, e.message);
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rawData = xlsx.utils.sheet_to_json(sheet);
+            const cleanData = rawData.map(normalizeVoterRow);
+            fs.writeFileSync(jsonFilePath, JSON.stringify(cleanData));
+
+            let cat = m?.category || 'general';
+            if (cleanData.some(r => r['PANCHAYAT NAME'] || r['PANCHAYAT SAMITI NAME'] || r['ZILLA PARISHAD NAME'])) {
+              cat = 'panchayat';
+            }
+
+            const autoMeta = extractMetadataFromData(cleanData, m || {}, cat);
+            const stats = calculateVoterStats(cleanData);
+
+            if (existingIndex !== -1) {
+              metadata[existingIndex] = {
+                ...metadata[existingIndex],
+                category: cat,
+                ...autoMeta,
+                stats
+              };
+            } else {
+              metadata.push({
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                fileName: fileName,
+                originalName: fileName,
+                category: cat,
+                ...autoMeta,
+                stats,
+                timestamp: new Date().toISOString()
+              });
+            }
+            changed = true;
+          } catch(err) {
+            console.error(`Error processing ${fileName}:`, err.message);
           }
         }
       }
     }
-    console.log('Excel to JSON startup check complete.');
-  } catch (err) {
-    console.error('Error during startup Excel conversion check:', err);
+
+    if (changed) {
+      fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+      console.log('excel-metadata.json successfully updated with extracted parameters.');
+    }
+  } catch(err) {
+    console.error('Error refreshing metadata:', err);
   }
 }
+
+// Run refresh on start
+refreshExcelMetadata();
 
 // Start the server
 app.listen(PORT, () => {
