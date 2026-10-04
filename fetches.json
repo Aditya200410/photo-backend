@@ -1,0 +1,79 @@
+[
+  {
+    "id": 1791099736321,
+    "category": "assembly",
+    "state": "DL",
+    "district": "New Delhi",
+    "assembly": "jha",
+    "ward": "-",
+    "booth": "123",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T07:42:16.321Z"
+  },
+  {
+    "id": 1791099843350,
+    "category": "assembly",
+    "state": "Gujarat",
+    "district": "Anand",
+    "assembly": "city",
+    "ward": "-",
+    "booth": "1",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T07:44:03.350Z"
+  },
+  {
+    "id": 1791100528289,
+    "category": "assembly",
+    "state": "Gujarat",
+    "district": "Anand",
+    "assembly": "city",
+    "ward": "-",
+    "booth": "1",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T07:55:28.289Z"
+  },
+  {
+    "id": 1791100618789,
+    "category": "assembly",
+    "state": "Madhya Pradesh",
+    "district": "Anjad",
+    "assembly": "city123",
+    "ward": "-",
+    "booth": "1",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T07:56:58.789Z"
+  },
+  {
+    "id": 1791100820813,
+    "category": "assembly",
+    "state": "Madhya Pradesh",
+    "district": "Anjad",
+    "assembly": "city123",
+    "ward": "-",
+    "booth": "1",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T08:00:20.813Z"
+  },
+  {
+    "id": 1791100923812,
+    "category": "assembly",
+    "state": "Delhi",
+    "district": "North East Delhi",
+    "assembly": "qwee",
+    "ward": "-",
+    "booth": "q3r",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T08:02:03.812Z"
+  },
+  {
+    "id": 1791101057696,
+    "category": "assembly",
+    "state": "Madhya Pradesh",
+    "district": "Anjad",
+    "assembly": "city123",
+    "ward": "-",
+    "booth": "1",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-04T08:04:17.696Z"
+  }
+]

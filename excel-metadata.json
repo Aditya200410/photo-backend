@@ -12,7 +12,7 @@
     "stats": {
       "totalVoters": 310350,
       "maleVoters": 166769,
-      "femaleVoters": 0,
+      "femaleVoters": 143070,
       "averageAge": 42,
       "totalAge": 12960957,
       "votersWithAge": 307974,
@@ -80,5 +80,80 @@
         "senior": 605
       }
     }
+  },
+  {
+    "id": 1791099815050,
+    "fileName": "FinalDetailsofVoter_ENGLISH (2).xlsx",
+    "originalName": "FinalDetailsofVoter_ENGLISH (2).xlsx",
+    "category": "assembly",
+    "state": "Gujarat",
+    "district": "Anand",
+    "assembly": "city",
+    "booth": "1",
+    "stats": {
+      "totalVoters": 9,
+      "maleVoters": 6,
+      "femaleVoters": 3,
+      "averageAge": 36,
+      "totalAge": 324,
+      "votersWithAge": 9,
+      "ageBrackets": {
+        "youth": 2,
+        "adult": 6,
+        "middle": 0,
+        "senior": 1
+      }
+    },
+    "timestamp": "2026-10-04T07:43:35.050Z"
+  },
+  {
+    "id": 1791100598920,
+    "fileName": "FinalDetailsofVoter_ENGLISH (2).xlsx",
+    "originalName": "FinalDetailsofVoter_ENGLISH (2).xlsx",
+    "category": "assembly",
+    "state": "Madhya Pradesh",
+    "district": "Anjad",
+    "assembly": "city123",
+    "booth": "1",
+    "stats": {
+      "totalVoters": 9,
+      "maleVoters": 6,
+      "femaleVoters": 3,
+      "averageAge": 36,
+      "totalAge": 324,
+      "votersWithAge": 9,
+      "ageBrackets": {
+        "youth": 2,
+        "adult": 6,
+        "middle": 0,
+        "senior": 1
+      }
+    },
+    "timestamp": "2026-10-04T07:56:38.920Z"
+  },
+  {
+    "id": 1791100903298,
+    "fileName": "FinalDetailsofVoter_ENGLISH (2).xlsx",
+    "originalName": "FinalDetailsofVoter_ENGLISH (2).xlsx",
+    "category": "assembly",
+    "state": "Delhi",
+    "district": "North East Delhi",
+    "assembly": "qwee",
+    "booth": "q3r",
+    "stats": {
+      "totalVoters": 9,
+      "maleVoters": 6,
+      "femaleVoters": 3,
+      "averageAge": 36,
+      "totalAge": 324,
+      "votersWithAge": 9,
+      "ageBrackets": {
+        "youth": 2,
+        "adult": 6,
+        "middle": 0,
+        "senior": 1
+      }
+    },
+    "timestamp": "2026-10-04T08:01:43.298Z"
   }
 ]

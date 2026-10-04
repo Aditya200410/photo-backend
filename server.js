@@ -241,9 +241,20 @@ app.post('/api/prints', (req, res) => {
 app.get('/api/prints', authMiddleware, (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
-    // Sort descending by timestamp
     data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    res.json(data);
+    // Enrich with user profile info
+    const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
+    const enriched = data.map(record => {
+      const user = users.find(u => u.email === record.account);
+      return {
+        ...record,
+        accountName: user?.name || null,
+        accountPhone: user?.phone || null,
+        accountUtr: user?.utr || null,
+        accountStatus: user?.status || null
+      };
+    });
+    res.json(enriched);
   } catch (err) {
     console.error('Error reading prints:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -325,9 +336,9 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
       ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
     };
     for (const v of data) {
-      const gender = (v.MSEX || v.FGENDER || v.SEX || '').toUpperCase();
-      if (gender === 'M' || gender === 'पुरुष') stats.maleVoters++;
-      else if (gender === 'F' || gender === 'स्त्री') stats.femaleVoters++;
+      const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
+      if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
+      else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
       const age = parseInt(v.MAGE || v.FAGE || v.AGE);
       if (!isNaN(age) && age > 0 && age < 150) {
         stats.totalAge += age; stats.votersWithAge++;
@@ -434,6 +445,56 @@ app.get('/api/analytics', (req, res) => {
   });
 });
 
+// POST endpoint to recalculate stats for all existing excel files
+app.post('/api/recalculate-stats', (req, res) => {
+  if (!fs.existsSync(excelMetaPath)) return res.json({ message: 'No metadata found', updated: 0 });
+  let metadata = [];
+  try {
+    metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to read metadata' });
+  }
+
+  let updatedCount = 0;
+  for (const entry of metadata) {
+    if (!entry.fileName) continue;
+    const filePath = path.join(__dirname, 'uploads', entry.fileName);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const wb = xlsx.readFile(filePath);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const data = xlsx.utils.sheet_to_json(sheet);
+      let stats = {
+        totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
+        averageAge: 0, totalAge: 0, votersWithAge: 0,
+        ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
+      };
+      for (const v of data) {
+        const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
+        if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
+        else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
+        const age = parseInt(v.MAGE || v.FAGE || v.AGE);
+        if (!isNaN(age) && age > 0 && age < 150) {
+          stats.totalAge += age; stats.votersWithAge++;
+          if (age >= 18 && age <= 25) stats.ageBrackets.youth++;
+          else if (age >= 26 && age <= 40) stats.ageBrackets.adult++;
+          else if (age >= 41 && age <= 60) stats.ageBrackets.middle++;
+          else if (age > 60) stats.ageBrackets.senior++;
+        }
+      }
+      if (stats.votersWithAge > 0) stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
+      entry.stats = stats;
+      // Also update the .json cache
+      fs.writeFileSync(filePath + '.json', JSON.stringify(data));
+      updatedCount++;
+    } catch (e) {
+      console.error(`Failed to recalculate stats for ${entry.fileName}:`, e.message);
+    }
+  }
+  fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+  res.json({ message: `Recalculated stats for ${updatedCount} file(s)`, updated: updatedCount });
+});
+
 // PUT endpoint to update excel file metadata and optionally replace the file
 app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
   const fileId = parseInt(req.params.id);
@@ -482,9 +543,9 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
         ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
       };
       for (const v of data) {
-        const gender = (v.MSEX || v.FGENDER || v.SEX || '').toUpperCase();
-        if (gender === 'M' || gender === 'पुरुष') stats.maleVoters++;
-        else if (gender === 'F' || gender === 'स्त्री') stats.femaleVoters++;
+        const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
+        if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
+        else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
         const age = parseInt(v.MAGE || v.FAGE || v.AGE);
         if (!isNaN(age) && age > 0 && age < 150) {
           stats.totalAge += age; stats.votersWithAge++;
@@ -550,7 +611,18 @@ app.get('/api/fetches', authMiddleware, (req, res) => {
     if (!fs.existsSync(logsPath)) return res.json([]);
     const data = JSON.parse(fs.readFileSync(logsPath, 'utf-8'));
     data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    res.json(data);
+    // Enrich with user profile info
+    const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
+    const enriched = data.map(record => {
+      const user = users.find(u => u.email === record.account);
+      return {
+        ...record,
+        accountName: user?.name || null,
+        accountPhone: user?.phone || null,
+        accountUtr: user?.utr || null
+      };
+    });
+    res.json(enriched);
   } catch (err) {
     console.error('Error reading fetches:', err);
     res.status(500).json({ error: 'Internal server error' });
