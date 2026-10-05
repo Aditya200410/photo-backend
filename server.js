@@ -8,9 +8,28 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const ExcelJS = require('exceljs');
 
+// Load environment variables from .env if present
+const dotenvPath = path.join(__dirname, '.env');
+if (fs.existsSync(dotenvPath)) {
+  const envContent = fs.readFileSync(dotenvPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const idx = trimmed.indexOf('=');
+      if (idx !== -1) {
+        const key = trimmed.slice(0, idx).trim();
+        const val = trimmed.slice(idx + 1).trim();
+        if (!process.env[key]) process.env[key] = val;
+      }
+    }
+  });
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = 'supersecretjwtkey_please_change_in_production'; // Simple hardcoded secret
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey_please_change_in_production';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Middleware
 // Universal CORS configuration supporting credentials, preflights, and onlinevoterslip.com
@@ -80,19 +99,48 @@ if (!fs.existsSync(dataFilePath)) {
 if (!fs.existsSync(creditRequestsFilePath)) {
   fs.writeFileSync(creditRequestsFilePath, JSON.stringify([]));
 }
-if (!fs.existsSync(usersFilePath)) {
-  // Create default admin: admin123 / admin123
-  const defaultAdmin = [{
-    id: 'admin123',
-    email: 'admin123',
-    name: 'Admin',
-    phone: '',
-    role: 'admin',
-    status: 'active',
-    passwordHash: '$2b$10$.TH8V2wgwIf8Kuz1pZEdF.DHKchynjrV0B8OLK2d.fS4skIaHkgPm'
-  }];
-  fs.writeFileSync(usersFilePath, JSON.stringify(defaultAdmin, null, 2));
+// Ensure users file exists and configure admin strictly from environment variable
+function syncAdminFromEnv() {
+  let users = [];
+  if (fs.existsSync(usersFilePath)) {
+    try {
+      users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+    } catch (e) {
+      users = [];
+    }
+  }
+
+  // Remove any legacy hardcoded admin entries
+  users = users.filter(u => u.email !== 'admin123' && u.id !== 'admin123');
+
+  if (ADMIN_PASSWORD) {
+    const passwordHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+    const existingAdminIdx = users.findIndex(u => u.role === 'admin' || u.email === ADMIN_EMAIL);
+    const adminUser = {
+      id: 'admin',
+      email: ADMIN_EMAIL,
+      name: 'Administrator',
+      phone: '',
+      role: 'admin',
+      status: 'active',
+      passwordHash
+    };
+
+    if (existingAdminIdx !== -1) {
+      users[existingAdminIdx] = { ...users[existingAdminIdx], ...adminUser };
+    } else {
+      users.unshift(adminUser);
+    }
+    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+    console.log(`Admin account initialized/updated from environment variable for: ${ADMIN_EMAIL}`);
+  } else {
+    console.warn('[SECURITY WARNING] ADMIN_PASSWORD environment variable is not set. Admin login is disabled until ADMIN_PASSWORD is set in .env');
+    if (!fs.existsSync(usersFilePath)) {
+      fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+    }
+  }
 }
+syncAdminFromEnv();
 if (!fs.existsSync(settingsFilePath)) {
   const defaultSettings = {
     assemblyImage: "https://images.unsplash.com/photo-1575517111478-7f6afd0973db?q=80&w=2070&auto=format&fit=crop",
