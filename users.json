@@ -12,8 +12,36 @@
     "status": "active",
     "passwordHash": "$2b$10$/FGlsd.0H/wsvyALn/ZRpOXL1rdafR6ylPoeyFVzY4W/hX5lT1sjq",
     "utr": "waqfas",
-    "credits": 100,
+    "credits": 98.9,
     "creditHistory": [
+      {
+        "id": 1791217668987,
+        "type": "PRINT_DEDUCTION",
+        "description": "Option 2 (10 pages [80 slips] without photo @ ₹0.10/page)",
+        "amount": -1,
+        "cost": 1,
+        "rate": 0.1,
+        "rate_per_page": 0.1,
+        "hasImage": false,
+        "pagesCount": 10,
+        "slipsCount": 80,
+        "balanceAfter": 98.9,
+        "timestamp": "2026-10-05T16:27:48.987Z"
+      },
+      {
+        "id": 1791217642647,
+        "type": "PRINT_DEDUCTION",
+        "description": "Option 1 (1 page [8 slips] without photo @ ₹0.10/page)",
+        "amount": -0.1,
+        "cost": 0.1,
+        "rate": 0.1,
+        "rate_per_page": 0.1,
+        "hasImage": false,
+        "pagesCount": 1,
+        "slipsCount": 8,
+        "balanceAfter": 99.9,
+        "timestamp": "2026-10-05T16:27:22.647Z"
+      },
       {
         "id": 1791213314434,
         "type": "CREDIT_ADDED",
@@ -23,5 +51,15 @@
         "timestamp": "2026-10-05T15:15:14.434Z"
       }
     ]
+  },
+  {
+    "id": "1791217898894",
+    "name": "Test User",
+    "phone": "9876543210",
+    "email": "test@example.com",
+    "role": "user",
+    "status": "pending_approval",
+    "passwordHash": "$2b$10$70glON.fzk9Gv4Eatm9cKu5sZLCJgQz9O8s0yahWAodFbFb/emkpG",
+    "utr": "123456789012"
   }
 ]
