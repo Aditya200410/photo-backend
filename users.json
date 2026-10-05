@@ -11,6 +11,17 @@
     "role": "user",
     "status": "active",
     "passwordHash": "$2b$10$/FGlsd.0H/wsvyALn/ZRpOXL1rdafR6ylPoeyFVzY4W/hX5lT1sjq",
-    "utr": "waqfas"
+    "utr": "waqfas",
+    "credits": 100,
+    "creditHistory": [
+      {
+        "id": 1791213314434,
+        "type": "CREDIT_ADDED",
+        "description": "UPI Credit Recharge Approved (UTR: UPI123456789012)",
+        "amount": 100,
+        "balanceAfter": 100,
+        "timestamp": "2026-10-05T15:15:14.434Z"
+      }
+    ]
   }
 ]

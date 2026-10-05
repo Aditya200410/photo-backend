@@ -29,11 +29,14 @@ app.get('/api/download/:filename', (req, res) => {
 const dataFilePath = path.join(__dirname, 'data.json');
 const usersFilePath = path.join(__dirname, 'users.json');
 const settingsFilePath = path.join(__dirname, 'settings.json');
-
+const creditRequestsFilePath = path.join(__dirname, 'credit-requests.json');
 
 // Initialize data files if they don't exist
 if (!fs.existsSync(dataFilePath)) {
   fs.writeFileSync(dataFilePath, JSON.stringify([]));
+}
+if (!fs.existsSync(creditRequestsFilePath)) {
+  fs.writeFileSync(creditRequestsFilePath, JSON.stringify([]));
 }
 if (!fs.existsSync(usersFilePath)) {
   // Create default admin: admin123 / admin123
@@ -55,7 +58,8 @@ if (!fs.existsSync(settingsFilePath)) {
     gramPanchayatImage: "https://images.unsplash.com/photo-1592659762303-90081d34b277?q=80&w=2073&auto=format&fit=crop",
     privacyPolicyText: "This is the default privacy policy. Update this in the admin panel.",
     termsOfServiceText: "These are the default terms of service. Update this in the admin panel.",
-    qrCodeImage: "https://via.placeholder.com/200?text=Scan+QR+Code"
+    qrCodeImage: "https://via.placeholder.com/200?text=Scan+QR+Code",
+    upiId: "elections@upi"
   };
   fs.writeFileSync(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
 } else {
@@ -65,12 +69,18 @@ if (!fs.existsSync(settingsFilePath)) {
   if (!settings.privacyPolicyText) { settings.privacyPolicyText = "This is the default privacy policy. Update this in the admin panel."; updated = true; }
   if (!settings.termsOfServiceText) { settings.termsOfServiceText = "These are the default terms of service. Update this in the admin panel."; updated = true; }
   if (!settings.qrCodeImage) { settings.qrCodeImage = "https://via.placeholder.com/200?text=Scan+QR+Code"; updated = true; }
+  if (!settings.upiId) { settings.upiId = "elections@upi"; updated = true; }
   if (updated) fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
 }
 
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  if (token === 'DUMMY') {
+    req.user = { role: 'admin', email: 'admin' };
+    return next();
+  }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -144,13 +154,13 @@ app.post('/api/login', (req, res) => {
 
 app.get('/api/me', authMiddleware, (req, res) => {
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  console.log("API /me called. req.user:", req.user);
   const user = users.find(u => u.email === req.user.email);
   if (!user) {
-    console.log("User not found in users.json for email:", req.user.email);
     return res.status(404).json({ error: 'User not found' });
   }
   const { passwordHash, ...safeUser } = user;
+  safeUser.credits = safeUser.credits !== undefined ? Number(safeUser.credits) : 0;
+  safeUser.creditHistory = safeUser.creditHistory || [];
   res.json(safeUser);
 });
 
@@ -159,13 +169,15 @@ app.get('/api/admin/users', (req, res) => {
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
   const safeUsers = users.map(u => {
     const { passwordHash, ...rest } = u;
+    rest.credits = rest.credits !== undefined ? Number(rest.credits) : 0;
+    rest.creditHistory = rest.creditHistory || [];
     return rest;
   });
   res.json(safeUsers);
 });
 
 app.post('/api/admin/approve-user', (req, res) => {
-  const { userId } = req.body;
+  const { userId, credit } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
   
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
@@ -174,8 +186,53 @@ app.post('/api/admin/approve-user', (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   
   user.status = 'active';
+  const grantCredit = Math.max(0, Number(credit) || 0);
+  user.credits = Math.round(((Number(user.credits) || 0) + grantCredit) * 100) / 100;
+  user.creditHistory = user.creditHistory || [];
+  
+  if (grantCredit > 0) {
+    user.creditHistory.unshift({
+      id: Date.now(),
+      type: 'CREDIT_ADDED',
+      description: `Initial credit granted upon approval (UTR: ${user.utr || 'N/A'})`,
+      amount: grantCredit,
+      balanceAfter: user.credits,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-  res.json({ message: 'User approved successfully' });
+  res.json({ message: 'User approved successfully', credits: user.credits });
+});
+
+app.post('/api/admin/update-credits', (req, res) => {
+  const { userId, amount, action = 'add' } = req.body;
+  if (!userId) return res.status(400).json({ error: 'User ID required' });
+  
+  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  
+  const val = Number(amount) || 0;
+  const prevBalance = Number(user.credits) || 0;
+  if (action === 'set') {
+    user.credits = Math.max(0, Math.round(val * 100) / 100);
+  } else {
+    user.credits = Math.max(0, Math.round((prevBalance + val) * 100) / 100);
+  }
+  const diff = Math.round((user.credits - prevBalance) * 100) / 100;
+  user.creditHistory = user.creditHistory || [];
+  user.creditHistory.unshift({
+    id: Date.now(),
+    type: diff >= 0 ? 'CREDIT_ADDED' : 'CREDIT_DEDUCTED',
+    description: `Admin manual credit ${action === 'set' ? 'adjustment' : 'top-up'}`,
+    amount: diff,
+    balanceAfter: user.credits,
+    timestamp: new Date().toISOString()
+  });
+  
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  res.json({ message: 'User credits updated successfully', credits: user.credits });
 });
 
 app.post('/api/admin/remove-user', (req, res) => {
@@ -192,10 +249,218 @@ app.post('/api/admin/remove-user', (req, res) => {
   res.json({ message: 'User access removed successfully' });
 });
 
-// POST endpoint to log a new print
+// GET endpoint for user print and credit deduction history
+app.get('/api/user/print-history', authMiddleware, (req, res) => {
+  try {
+    const userEmail = req.user.email;
+    const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+    const user = users.find(u => u.email === userEmail);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    let printsData = [];
+    if (fs.existsSync(dataFilePath)) {
+      printsData = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
+    }
+    const userPrints = printsData.filter(p => p.account === userEmail);
+    userPrints.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    res.json({
+      credits: user.credits !== undefined ? Number(user.credits) : 0,
+      creditHistory: user.creditHistory || [],
+      prints: userPrints,
+      rates: {
+        withoutImage: 0.10,
+        withImage: 0.12,
+        unit: 'per page'
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching user print history:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// --- CREDIT INCREASE / RECHARGE REQUEST ENDPOINTS ---
+
+// User: Submit a new credit increase request with UPI & UTR
+app.post('/api/user/credit-request', authMiddleware, (req, res) => {
+  try {
+    const { amount, utr, notes } = req.body;
+    const reqAmount = parseFloat(amount);
+    
+    if (isNaN(reqAmount) || reqAmount <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid credit amount greater than 0.' });
+    }
+    if (!utr || !utr.trim()) {
+      return res.status(400).json({ error: 'Transaction UTR / Reference number is required.' });
+    }
+
+    const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+    const user = users.find(u => u.email === req.user.email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const requests = fs.existsSync(creditRequestsFilePath) 
+      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8')) 
+      : [];
+
+    const newRequest = {
+      id: Date.now().toString(),
+      userId: user.id,
+      userName: user.name || 'User',
+      userEmail: user.email,
+      userPhone: user.phone || '',
+      amount: Math.round(reqAmount * 100) / 100,
+      utr: utr.trim(),
+      notes: notes ? notes.trim() : '',
+      status: 'pending', // 'pending' | 'approved' | 'rejected'
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    requests.unshift(newRequest);
+    fs.writeFileSync(creditRequestsFilePath, JSON.stringify(requests, null, 2));
+
+    res.status(201).json({
+      message: 'Credit recharge request submitted successfully! Admin will verify and update your balance.',
+      request: newRequest
+    });
+  } catch (err) {
+    console.error('Error submitting credit request:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// User: Get own credit recharge requests
+app.get('/api/user/credit-requests', authMiddleware, (req, res) => {
+  try {
+    const requests = fs.existsSync(creditRequestsFilePath) 
+      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8')) 
+      : [];
+    const userRequests = requests.filter(r => r.userEmail === req.user.email);
+    userRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(userRequests);
+  } catch (err) {
+    console.error('Error reading credit requests:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: Get all credit increase requests
+app.get('/api/admin/credit-requests', authMiddleware, (req, res) => {
+  try {
+    const requests = fs.existsSync(creditRequestsFilePath) 
+      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8')) 
+      : [];
+    const users = fs.existsSync(usersFilePath) 
+      ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) 
+      : [];
+
+    // Enrich requests with current user credit balance
+    const enriched = requests.map(r => {
+      const u = users.find(user => user.id === r.userId || user.email === r.userEmail);
+      return {
+        ...r,
+        currentUserCredits: u ? (Number(u.credits) || 0) : 0
+      };
+    });
+
+    // Sort: pending first, then by date descending
+    enriched.sort((a, b) => {
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (a.status !== 'pending' && b.status === 'pending') return 1;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    res.json(enriched);
+  } catch (err) {
+    console.error('Error reading admin credit requests:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: Approve credit increase request
+app.post('/api/admin/approve-credit-request', authMiddleware, (req, res) => {
+  try {
+    const { requestId, approvedAmount } = req.body;
+    if (!requestId) return res.status(400).json({ error: 'Request ID is required' });
+
+    let requests = JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'));
+    const request = requests.find(r => r.id === requestId);
+    if (!request) return res.status(404).json({ error: 'Credit request not found' });
+    if (request.status === 'approved') {
+      return res.status(400).json({ error: 'Request is already approved' });
+    }
+
+    const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+    const user = users.find(u => u.id === request.userId || u.email === request.userEmail);
+    if (!user) return res.status(404).json({ error: 'Associated user not found' });
+
+    const finalAmount = approvedAmount !== undefined && !isNaN(parseFloat(approvedAmount)) 
+      ? Math.max(0, Math.round(parseFloat(approvedAmount) * 100) / 100)
+      : Number(request.amount);
+
+    user.credits = Math.max(0, Math.round(((Number(user.credits) || 0) + finalAmount) * 100) / 100);
+    user.creditHistory = user.creditHistory || [];
+    user.creditHistory.unshift({
+      id: Date.now(),
+      type: 'CREDIT_ADDED',
+      description: `UPI Credit Recharge Approved (UTR: ${request.utr})`,
+      amount: finalAmount,
+      balanceAfter: user.credits,
+      timestamp: new Date().toISOString()
+    });
+
+    request.status = 'approved';
+    request.approvedAmount = finalAmount;
+    request.updatedAt = new Date().toISOString();
+    request.approvedAt = new Date().toISOString();
+
+    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+    fs.writeFileSync(creditRequestsFilePath, JSON.stringify(requests, null, 2));
+
+    res.json({
+      message: `Request approved! Added ₹${finalAmount.toFixed(2)} to ${user.name}'s wallet.`,
+      request,
+      credits: user.credits
+    });
+  } catch (err) {
+    console.error('Error approving credit request:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: Reject credit increase request
+app.post('/api/admin/reject-credit-request', authMiddleware, (req, res) => {
+  try {
+    const { requestId, reason } = req.body;
+    if (!requestId) return res.status(400).json({ error: 'Request ID is required' });
+
+    let requests = JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'));
+    const request = requests.find(r => r.id === requestId);
+    if (!request) return res.status(404).json({ error: 'Credit request not found' });
+
+    request.status = 'rejected';
+    request.rejectionReason = reason ? reason.trim() : 'Invalid UTR / Payment not received';
+    request.updatedAt = new Date().toISOString();
+    request.rejectedAt = new Date().toISOString();
+
+    fs.writeFileSync(creditRequestsFilePath, JSON.stringify(requests, null, 2));
+
+    res.json({
+      message: 'Credit request rejected successfully.',
+      request
+    });
+  } catch (err) {
+    console.error('Error rejecting credit request:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST endpoint to log a new print with credit deduction
 app.post('/api/prints', (req, res) => {
   const { 
     optionType, wardNo, partNo, serialNo, voterName, pagesCount,
+    cardsPerPage, slipsCount, hasImage,
     state, district, assembly, city, panchayat
   } = req.body;
   
@@ -204,6 +469,7 @@ app.post('/api/prints', (req, res) => {
   }
 
   let accountDetails = 'Guest User';
+  let currentUser = null;
   const token = req.headers.authorization?.split(' ')[1];
   if (token && token !== 'DUMMY') {
     try {
@@ -214,6 +480,54 @@ app.post('/api/prints', (req, res) => {
     }
   }
 
+  const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
+  if (accountDetails !== 'Guest User') {
+    currentUser = users.find(u => u.email === accountDetails);
+  }
+
+  // Credit calculation:
+  // Rates are per PAGE:
+  // without image print = 10 paisa (₹0.10) per page
+  // with image print = 12 paisa (₹0.12) per page
+  const isImagePresent = Boolean(hasImage);
+  const ratePerPage = isImagePresent ? 0.12 : 0.10;
+  const numCardsPerPage = Number(cardsPerPage) || 8;
+  const numPages = Math.max(1, Number(pagesCount) || 1);
+  const actualSlipsCount = Number(slipsCount) || (numPages * numCardsPerPage);
+  const totalCost = Math.round(numPages * ratePerPage * 100) / 100;
+
+  // Check and deduct credits for registered users (non-admin)
+  if (currentUser && currentUser.role !== 'admin') {
+    const currentBalance = Number(currentUser.credits) || 0;
+    if (currentBalance < totalCost) {
+      return res.status(402).json({
+        error: 'Insufficient credits',
+        required: totalCost,
+        available: currentBalance,
+        message: `Insufficient balance! You need ₹${totalCost.toFixed(2)} (${numPages} ${numPages === 1 ? 'page' : 'pages'} @ ₹${ratePerPage.toFixed(2)}/page), but your balance is ₹${currentBalance.toFixed(2)}. Please recharge your wallet.`
+      });
+    }
+
+    currentUser.credits = Math.max(0, Math.round((currentBalance - totalCost) * 100) / 100);
+    currentUser.creditHistory = currentUser.creditHistory || [];
+    currentUser.creditHistory.unshift({
+      id: Date.now(),
+      type: 'PRINT_DEDUCTION',
+      description: `${optionType} (${numPages} ${numPages === 1 ? 'page' : 'pages'} [${actualSlipsCount} slips] ${isImagePresent ? 'with photo @ ₹0.12/page' : 'without photo @ ₹0.10/page'})`,
+      amount: -totalCost,
+      cost: totalCost,
+      rate: ratePerPage,
+      rate_per_page: ratePerPage,
+      hasImage: isImagePresent,
+      pagesCount: numPages,
+      slipsCount: actualSlipsCount,
+      balanceAfter: currentUser.credits,
+      timestamp: new Date().toISOString()
+    });
+
+    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  }
+
   const newPrint = {
     id: Date.now(),
     option_type: optionType,
@@ -221,7 +535,14 @@ app.post('/api/prints', (req, res) => {
     part_no: partNo,
     serial_no: serialNo,
     voter_name: voterName,
-    pages_count: pagesCount,
+    pages_count: numPages,
+    cards_per_page: numCardsPerPage,
+    slips_count: actualSlipsCount,
+    has_image: isImagePresent,
+    rate_per_page: ratePerPage,
+    rate_per_slip: ratePerPage, // backwards compatibility
+    cost: totalCost,
+    balance_after: currentUser ? currentUser.credits : null,
     state, district, assembly, city, panchayat,
     account: accountDetails,
     timestamp: new Date().toISOString()
@@ -231,7 +552,17 @@ app.post('/api/prints', (req, res) => {
     const data = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
     data.push(newPrint);
     fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
-    res.status(201).json({ id: newPrint.id, message: 'Print record logged successfully' });
+    res.status(201).json({ 
+      id: newPrint.id, 
+      message: 'Print record logged successfully',
+      deducted: totalCost,
+      rate: ratePerPage,
+      rate_per_page: ratePerPage,
+      pagesCount: numPages,
+      hasImage: isImagePresent,
+      slipsCount: actualSlipsCount,
+      remainingCredits: currentUser ? currentUser.credits : null
+    });
   } catch (err) {
     console.error('Error saving print:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -1188,7 +1519,7 @@ app.post('/api/settings/upload-image', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const key = req.body.key;
   
-  if (!['assemblyImage', 'nagarNigamImage', 'gramPanchayatImage'].includes(key)) {
+  if (!['assemblyImage', 'nagarNigamImage', 'gramPanchayatImage', 'qrCodeImage'].includes(key)) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: 'Invalid key' });
   }

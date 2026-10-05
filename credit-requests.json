@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1791213302656",
+    "userId": "1791101026923",
+    "userName": "aditya Kumar",
+    "userEmail": "adityakumar098k@gmail.com",
+    "userPhone": "1234567890",
+    "amount": 100,
+    "utr": "UPI123456789012",
+    "notes": "Test payment via GPay",
+    "status": "approved",
+    "createdAt": "2026-10-05T15:15:02.656Z",
+    "updatedAt": "2026-10-05T15:15:14.434Z",
+    "approvedAmount": 100,
+    "approvedAt": "2026-10-05T15:15:14.434Z"
+  }
+]
