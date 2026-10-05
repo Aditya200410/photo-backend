@@ -1,5 +1,14 @@
 [
   {
+    "id": "admin",
+    "email": "admin",
+    "name": "Administrator",
+    "phone": "",
+    "role": "admin",
+    "status": "active",
+    "passwordHash": "$2b$10$/CqivAKxhS85nzcO4mG8deCPCiTK5AzJOXuRbLy.LBnr9gCV2OfUW"
+  },
+  {
     "id": "1791101026923",
     "name": "aditya Kumar",
     "phone": "1234567890",

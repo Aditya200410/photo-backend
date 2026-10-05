@@ -254,6 +254,40 @@ app.get('/api/me', authMiddleware, (req, res) => {
   res.json(safeUser);
 });
 
+// Endpoint to verify admin password against backend environment
+app.post('/api/admin/verify-password', (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
+  }
+
+  const backendAdminPassword = process.env.ADMIN_PASSWORD;
+
+  // Check directly against process.env.ADMIN_PASSWORD
+  if (backendAdminPassword && password === backendAdminPassword) {
+    const token = jwt.sign({ email: ADMIN_EMAIL, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({ success: true, token });
+  }
+
+  // Also check against admin record in users.json
+  try {
+    const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+    const adminUser = users.find(u => u.role === 'admin' || u.email === ADMIN_EMAIL);
+    if (adminUser && adminUser.passwordHash && bcrypt.compareSync(password, adminUser.passwordHash)) {
+      const token = jwt.sign({ email: adminUser.email, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+      return res.json({ success: true, token });
+    }
+  } catch (e) {
+    console.error('Error verifying admin in database:', e);
+  }
+
+  if (!backendAdminPassword) {
+    return res.status(500).json({ error: 'ADMIN_PASSWORD is not configured in backend .env' });
+  }
+
+  return res.status(401).json({ error: 'Invalid password' });
+});
+
 // Admin User endpoints
 app.get('/api/admin/users', (req, res) => {
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
