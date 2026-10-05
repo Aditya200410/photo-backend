@@ -13,12 +13,54 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = 'supersecretjwtkey_please_change_in_production'; // Simple hardcoded secret
 
 // Middleware
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(express.json());
+// Universal CORS configuration supporting credentials, preflights, and onlinevoterslip.com
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests (Postman, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow any origin matching onlinevoterslip.com or localhost or any client
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'X-File-Name',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Content-Disposition'],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// Explicit manual preflight & header middleware for complete CORS assurance
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-File-Name, Access-Control-Request-Method, Access-Control-Request-Headers');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Configure body-parser to accept data up to 500MB
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/api/download/:filename', (req, res) => {
@@ -593,11 +635,11 @@ app.get('/api/prints', authMiddleware, (req, res) => {
   }
 });
 
-// Configure multer
+// Configure multer for file uploads up to 500MB
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -606,7 +648,13 @@ const storage = multer.diskStorage({
     cb(null, finalName);
   }
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 524288000, // 500 MB (500 * 1024 * 1024 bytes)
+    fieldSize: 524288000  // 500 MB form fields
+  }
+});
 
 const excelMetaPath = path.join(__dirname, 'excel-metadata.json');
 
@@ -1618,8 +1666,24 @@ function refreshExcelMetadata() {
 // Run refresh on start
 refreshExcelMetadata();
 
+// Global error handling middleware for Multer errors & large bodies
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'File size exceeds 500MB limit.' });
+    }
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  } else if (err) {
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Request body exceeds 500MB limit.' });
+    }
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+  next();
+});
+
 // Start the server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
   
   // Self-ping to keep Render backend awake
@@ -1635,3 +1699,8 @@ app.listen(PORT, () => {
     });
   }, interval);
 });
+
+// Configure server timeouts for large 500MB uploads and processing
+server.timeout = 600000; // 10 minutes timeout
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
