@@ -184,10 +184,10 @@ const authMiddleware = (req, res, next) => {
 app.post('/api/signup', (req, res) => {
   const { name, phone, email, password } = req.body;
   if (!name || !phone || !email || !password) return res.status(400).json({ error: 'All fields are required' });
-  
+
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
   if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email already exists' });
-  
+
   const newUser = {
     id: Date.now().toString(),
     name, phone, email,
@@ -195,7 +195,7 @@ app.post('/api/signup', (req, res) => {
     status: 'pending_payment',
     passwordHash: bcrypt.hashSync(password, 10)
   };
-  
+
   users.push(newUser);
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
   res.json({ message: 'Signup successful', userId: newUser.id });
@@ -204,15 +204,15 @@ app.post('/api/signup', (req, res) => {
 app.post('/api/submit-utr', (req, res) => {
   const { userId, utr } = req.body;
   if (!userId || !utr) return res.status(400).json({ error: 'User ID and UTR are required' });
-  
+
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
   const user = users.find(u => u.id === userId);
-  
+
   if (!user) return res.status(404).json({ error: 'User not found' });
   if (user.status !== 'pending_payment' && user.status !== 'pending_approval') {
     return res.status(400).json({ error: 'Invalid user status' });
   }
-  
+
   user.status = 'pending_approval';
   user.utr = utr;
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
@@ -282,7 +282,7 @@ app.post('/api/admin/verify-password', (req, res) => {
   }
 
   if (!backendAdminPassword) {
-    return res.status(500).json({ error: 'ADMIN_PASSWORD is not configured in backend .env' });
+    return res.status(500).json({ error: 'ADMIN_PASSWORD not there' });
   }
 
   return res.status(401).json({ error: 'Invalid password' });
@@ -303,17 +303,17 @@ app.get('/api/admin/users', (req, res) => {
 app.post('/api/admin/approve-user', (req, res) => {
   const { userId, credit } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
-  
+
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
   const user = users.find(u => u.id === userId);
-  
+
   if (!user) return res.status(404).json({ error: 'User not found' });
-  
+
   user.status = 'active';
   const grantCredit = Math.max(0, Number(credit) || 0);
   user.credits = Math.round(((Number(user.credits) || 0) + grantCredit) * 100) / 100;
   user.creditHistory = user.creditHistory || [];
-  
+
   if (grantCredit > 0) {
     user.creditHistory.unshift({
       id: Date.now(),
@@ -324,7 +324,7 @@ app.post('/api/admin/approve-user', (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-  
+
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
   res.json({ message: 'User approved successfully', credits: user.credits });
 });
@@ -332,11 +332,11 @@ app.post('/api/admin/approve-user', (req, res) => {
 app.post('/api/admin/update-credits', (req, res) => {
   const { userId, amount, action = 'add' } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
-  
+
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
   const user = users.find(u => u.id === userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  
+
   const val = Number(amount) || 0;
   const prevBalance = Number(user.credits) || 0;
   if (action === 'set') {
@@ -354,7 +354,7 @@ app.post('/api/admin/update-credits', (req, res) => {
     balanceAfter: user.credits,
     timestamp: new Date().toISOString()
   });
-  
+
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
   res.json({ message: 'User credits updated successfully', credits: user.credits });
 });
@@ -362,13 +362,13 @@ app.post('/api/admin/update-credits', (req, res) => {
 app.post('/api/admin/remove-user', (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
-  
+
   let users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
   const initialLength = users.length;
   users = users.filter(u => u.id !== userId);
-  
+
   if (users.length === initialLength) return res.status(404).json({ error: 'User not found' });
-  
+
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
   res.json({ message: 'User access removed successfully' });
 });
@@ -411,7 +411,7 @@ app.post('/api/user/credit-request', authMiddleware, (req, res) => {
   try {
     const { amount, utr, notes } = req.body;
     const reqAmount = parseFloat(amount);
-    
+
     if (isNaN(reqAmount) || reqAmount <= 0) {
       return res.status(400).json({ error: 'Please enter a valid credit amount greater than 0.' });
     }
@@ -423,8 +423,8 @@ app.post('/api/user/credit-request', authMiddleware, (req, res) => {
     const user = users.find(u => u.email === req.user.email);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const requests = fs.existsSync(creditRequestsFilePath) 
-      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8')) 
+    const requests = fs.existsSync(creditRequestsFilePath)
+      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'))
       : [];
 
     const newRequest = {
@@ -457,8 +457,8 @@ app.post('/api/user/credit-request', authMiddleware, (req, res) => {
 // User: Get own credit recharge requests
 app.get('/api/user/credit-requests', authMiddleware, (req, res) => {
   try {
-    const requests = fs.existsSync(creditRequestsFilePath) 
-      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8')) 
+    const requests = fs.existsSync(creditRequestsFilePath)
+      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'))
       : [];
     const userRequests = requests.filter(r => r.userEmail === req.user.email);
     userRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -472,11 +472,11 @@ app.get('/api/user/credit-requests', authMiddleware, (req, res) => {
 // Admin: Get all credit increase requests
 app.get('/api/admin/credit-requests', authMiddleware, (req, res) => {
   try {
-    const requests = fs.existsSync(creditRequestsFilePath) 
-      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8')) 
+    const requests = fs.existsSync(creditRequestsFilePath)
+      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'))
       : [];
-    const users = fs.existsSync(usersFilePath) 
-      ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) 
+    const users = fs.existsSync(usersFilePath)
+      ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'))
       : [];
 
     // Enrich requests with current user credit balance
@@ -519,7 +519,7 @@ app.post('/api/admin/approve-credit-request', authMiddleware, (req, res) => {
     const user = users.find(u => u.id === request.userId || u.email === request.userEmail);
     if (!user) return res.status(404).json({ error: 'Associated user not found' });
 
-    const finalAmount = approvedAmount !== undefined && !isNaN(parseFloat(approvedAmount)) 
+    const finalAmount = approvedAmount !== undefined && !isNaN(parseFloat(approvedAmount))
       ? Math.max(0, Math.round(parseFloat(approvedAmount) * 100) / 100)
       : Number(request.amount);
 
@@ -582,12 +582,12 @@ app.post('/api/admin/reject-credit-request', authMiddleware, (req, res) => {
 
 // POST endpoint to log a new print with credit deduction
 app.post('/api/prints', (req, res) => {
-  const { 
+  const {
     optionType, wardNo, partNo, serialNo, voterName, pagesCount,
     cardsPerPage, slipsCount, hasImage,
     state, district, assembly, city, panchayat
   } = req.body;
-  
+
   if (!optionType || !pagesCount) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
@@ -676,8 +676,8 @@ app.post('/api/prints', (req, res) => {
     const data = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
     data.push(newPrint);
     fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
-    res.status(201).json({ 
-      id: newPrint.id, 
+    res.status(201).json({
+      id: newPrint.id,
       message: 'Print record logged successfully',
       deducted: totalCost,
       rate: ratePerPage,
@@ -726,6 +726,10 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const customName = req.body.fileName || file.originalname;
+    // If it's an image, don't append .xlsx
+    if (file.mimetype.startsWith('image/')) {
+      return cb(null, customName);
+    }
     const finalName = (customName.endsWith('.xlsx') || customName.endsWith('.csv') || customName.endsWith('.xls')) ? customName : `${customName}.xlsx`;
     cb(null, finalName);
   }
@@ -826,7 +830,7 @@ function normalizeVoterRow(row) {
   else if (relation === 'W') relation = 'पत्नी (Wife)';
 
   const age = getField(row, ['AGE', 'FAGE', 'MAGE', 'आयु', 'उम्र']);
-  
+
   let sex = getField(row, ['SEX', 'GENDER', 'FGENDER', 'MSEX', 'लिंग']);
   const sexUpper = String(sex).trim().toUpperCase();
   if (sexUpper === 'M' || sexUpper === 'MALE' || sex === 'पुरुष') sex = 'पुरुष';
@@ -1059,18 +1063,18 @@ function extractMetadataFromData(data, manualMeta = {}, category = 'general') {
 app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const category = req.body.category || 'general';
-  
+
   if (!fs.existsSync(excelMetaPath)) fs.writeFileSync(excelMetaPath, JSON.stringify([]));
-  
+
   let metadata = [];
   try {
     metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-  } catch(e) {
+  } catch (e) {
     console.error('Error parsing metadata:', e);
     fs.copyFileSync(excelMetaPath, excelMetaPath + '.bak');
     fs.writeFileSync(excelMetaPath, JSON.stringify([]));
   }
-  
+
   let extractedMeta = {
     state: req.body.state,
     district: req.body.district,
@@ -1086,20 +1090,20 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
     const wb = xlsx.readFile(req.file.path);
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rawData = xlsx.utils.sheet_to_json(sheet);
-    
+
     // Normalize rows to standardize column names
     const cleanData = rawData.map(normalizeVoterRow);
-    
+
     // Extract multi-ward, multi-booth, panchayat, samiti, zilla hierarchy
     const autoMeta = extractMetadataFromData(cleanData, extractedMeta, category);
     extractedMeta = { ...extractedMeta, ...autoMeta };
 
     // Store normalized JSON version for fast access
     fs.writeFileSync(req.file.path + '.json', JSON.stringify(cleanData));
-    
+
     // Calculate stats
     extractedMeta.stats = calculateVoterStats(cleanData);
-  } catch(e) {
+  } catch (e) {
     console.error('Error extracting data from excel:', e);
   }
 
@@ -1119,7 +1123,7 @@ app.post('/api/upload-excel', upload.single('excelFile'), (req, res) => {
 app.get('/api/excel-files/:category', (req, res) => {
   const category = req.params.category;
   if (!fs.existsSync(excelMetaPath)) return res.json([]);
-  
+
   const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
   const filtered = metadata.filter(m => m.category === category);
   filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -1130,7 +1134,7 @@ app.get('/api/excel-files/:category', (req, res) => {
 app.get('/api/analytics', (req, res) => {
   let printsCount = 0;
   let lastPrintDate = null;
-  
+
   let stats = {
     assemblyFiles: 0,
     nagarNigamFiles: 0,
@@ -1151,7 +1155,7 @@ app.get('/api/analytics', (req, res) => {
 
   if (fs.existsSync(excelMetaPath)) {
     const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-    
+
     for (const m of metadata) {
       if (m.category === 'assembly') stats.assemblyFiles++;
       else if (m.category === 'nagar-nigam') stats.nagarNigamFiles++;
@@ -1163,7 +1167,7 @@ app.get('/api/analytics', (req, res) => {
         stats.femaleVoters += m.stats.femaleVoters || 0;
         stats.totalAge += m.stats.totalAge || 0;
         stats.votersWithAge += m.stats.votersWithAge || 0;
-        
+
         if (m.stats.ageBrackets) {
           stats.ageBrackets.youth += m.stats.ageBrackets.youth || 0;
           stats.ageBrackets.adult += m.stats.ageBrackets.adult || 0;
@@ -1172,12 +1176,12 @@ app.get('/api/analytics', (req, res) => {
         }
       }
     }
-    
+
     if (stats.votersWithAge > 0) {
       stats.averageAge = Math.round(stats.totalAge / stats.votersWithAge);
     }
   }
-  
+
   if (fs.existsSync(dataFilePath)) {
     const prints = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
     printsCount = prints.length;
@@ -1248,21 +1252,21 @@ app.post('/api/recalculate-stats', (req, res) => {
 app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
   const fileId = parseInt(req.params.id);
   if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
-  
+
   let metadata = [];
   try {
     metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-  } catch(e) {
+  } catch (e) {
     return res.status(500).json({ error: 'Internal server error reading metadata' });
   }
   const fileIndex = metadata.findIndex(m => m.id === fileId);
-  
+
   if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
-  
+
   const updatedData = req.body;
   // Ensure we don't overwrite id, fileName, originalName, category, timestamp unless a new file is uploaded
-  let updatedEntry = { 
-    ...metadata[fileIndex], 
+  let updatedEntry = {
+    ...metadata[fileIndex],
     state: updatedData.state || metadata[fileIndex].state,
     district: updatedData.district || metadata[fileIndex].district,
     city: updatedData.city || metadata[fileIndex].city,
@@ -1284,19 +1288,19 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rawData = xlsx.utils.sheet_to_json(sheet);
       const cleanData = rawData.map(normalizeVoterRow);
-      
+
       const autoMeta = extractMetadataFromData(cleanData, updatedEntry, updatedEntry.category || 'general');
       updatedEntry = { ...updatedEntry, ...autoMeta };
 
       fs.writeFileSync(req.file.path + '.json', JSON.stringify(cleanData));
       updatedEntry.stats = calculateVoterStats(cleanData);
-    } catch(e) {
+    } catch (e) {
       console.error('Error processing updated excel to JSON:', e);
     }
   }
-  
+
   metadata[fileIndex] = updatedEntry;
-  
+
   fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
   res.json({ message: 'File metadata updated successfully', data: metadata[fileIndex] });
 });
@@ -1304,19 +1308,19 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
 app.delete('/api/excel-files/:id', (req, res) => {
   const fileId = parseInt(req.params.id);
   if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
-  
+
   let metadata = [];
   try {
     metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-  } catch(e) {
+  } catch (e) {
     return res.status(500).json({ error: 'Internal server error reading metadata' });
   }
-  
+
   const fileIndex = metadata.findIndex(m => m.id === fileId);
   if (fileIndex === -1) return res.status(404).json({ error: 'File not found' });
-  
+
   const fileEntry = metadata[fileIndex];
-  
+
   // Optionally delete physical files
   try {
     if (fileEntry.fileName) {
@@ -1327,10 +1331,10 @@ app.delete('/api/excel-files/:id', (req, res) => {
   } catch (err) {
     console.error('Error deleting physical files:', err);
   }
-  
+
   metadata.splice(fileIndex, 1);
   fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
-  
+
   res.json({ message: 'File deleted successfully' });
 });
 
@@ -1363,34 +1367,34 @@ app.get('/api/fetches', authMiddleware, (req, res) => {
 });
 
 app.get('/api/voters', (req, res) => {
-  const { 
+  const {
     category, state, district, city, assembly, booth, ward, village, panchayat,
-    panchayatSamiti, panchayatSamitiNo, zillaParishad, zillaParishadNo 
+    panchayatSamiti, panchayatSamitiNo, zillaParishad, zillaParishadNo
   } = req.query;
   if (!fs.existsSync(excelMetaPath)) return res.json({ voters: [] });
 
   let metadata = [];
   try {
     metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-  } catch(e) {
+  } catch (e) {
     console.error('Error parsing metadata:', e);
     return res.status(500).json({ error: 'Internal server error reading metadata', voters: [] });
   }
-  
+
   // Find matching excel files
   const matchingFiles = metadata.filter(m => {
     let match = m.category === category;
     if (state && m.state) {
       match = match && m.state.toLowerCase() === state.toLowerCase();
     }
-    
+
     // District / Zilla Parishad match
     if (district || zillaParishad) {
       const targetZ = (zillaParishad || district).toLowerCase();
       const zillas = (m.zillaParishads || [m.zillaParishad, m.district]).filter(Boolean).map(s => String(s).toLowerCase());
       match = match && zillas.some(z => z === targetZ || z.includes(targetZ) || targetZ.includes(z));
     }
-    
+
     // City / Panchayat Samiti match
     if (city || panchayatSamiti) {
       const targetS = (panchayatSamiti || city).toLowerCase();
@@ -1463,9 +1467,9 @@ app.get('/api/voters', (req, res) => {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       accountDetails = decoded.email || 'Guest User';
-    } catch (e) {}
+    } catch (e) { }
   }
-  
+
   const fetchLogsPath = path.join(__dirname, 'fetches.json');
   if (!fs.existsSync(fetchLogsPath)) fs.writeFileSync(fetchLogsPath, JSON.stringify([]));
   try {
@@ -1484,7 +1488,7 @@ app.get('/api/voters', (req, res) => {
       timestamp: new Date().toISOString()
     });
     fs.writeFileSync(fetchLogsPath, JSON.stringify(fetchLogs, null, 2));
-  } catch(e) { console.error('Error logging fetch:', e); }
+  } catch (e) { console.error('Error logging fetch:', e); }
   // --- END FETCH LOGGING ---
 
   try {
@@ -1493,7 +1497,7 @@ app.get('/api/voters', (req, res) => {
       const filePath = path.join(__dirname, 'uploads', matchingFile.fileName);
       const jsonFilePath = filePath + '.json';
       const partDir = filePath + '_panchayats';
-      
+
       let data = [];
       if (fs.existsSync(partDir)) {
         const indexPath = path.join(partDir, '_index.json');
@@ -1538,7 +1542,7 @@ app.get('/api/voters', (req, res) => {
       } else {
         continue;
       }
-      
+
       // Filter rows inside this file based on selected parameters
       data = data.filter(row => {
         // Panchayat Name filter
@@ -1618,8 +1622,8 @@ app.get('/api/voters', (req, res) => {
 
       // Inject ward/booth/panchayat info if missing from row
       data = data.map(row => ({
-        ...row, 
-        _meta_ward: row.WARDNO || matchingFile.ward, 
+        ...row,
+        _meta_ward: row.WARDNO || matchingFile.ward,
         _meta_booth: row.BOOTH_NO || matchingFile.booth,
         _meta_panchayat: row['PANCHAYAT NAME'] || matchingFile.panchayat
       }));
@@ -1648,20 +1652,20 @@ app.put('/api/settings', (req, res) => {
 app.post('/api/settings/upload-image', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const key = req.body.key;
-  
+
   if (!['assemblyImage', 'nagarNigamImage', 'gramPanchayatImage', 'qrCodeImage'].includes(key)) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: 'Invalid key' });
   }
 
   const settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
-  
+
   const baseUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
   const imageUrl = `${baseUrl}/api/uploads/${req.file.filename}`;
-  
+
   settings[key] = imageUrl;
   fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
-  
+
   res.json({ message: 'Image updated successfully', imageUrl });
 });
 
@@ -1683,7 +1687,7 @@ function refreshExcelMetadata() {
       for (const fileName of files) {
         const filePath = path.join(uploadsDir, fileName);
         const jsonFilePath = filePath + '.json';
-        
+
         let existingIndex = metadata.findIndex(m => m.fileName === fileName);
         let m = existingIndex !== -1 ? metadata[existingIndex] : null;
 
@@ -1729,7 +1733,7 @@ function refreshExcelMetadata() {
               });
             }
             changed = true;
-          } catch(err) {
+          } catch (err) {
             console.error(`Error processing ${fileName}:`, err.message);
           }
         }
@@ -1740,7 +1744,7 @@ function refreshExcelMetadata() {
       fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
       console.log('excel-metadata.json successfully updated with extracted parameters.');
     }
-  } catch(err) {
+  } catch (err) {
     console.error('Error refreshing metadata:', err);
   }
 }
@@ -1767,11 +1771,11 @@ app.use((err, req, res, next) => {
 // Start the server
 const server = app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
-  
+
   // Self-ping to keep Render backend awake
   const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   const interval = 14 * 60 * 1000; // 14 minutes
-  
+
   setInterval(() => {
     const lib = url.startsWith('https') ? require('https') : require('http');
     lib.get(`${url}/api/ping`, (res) => {
