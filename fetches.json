@@ -686,5 +686,18 @@
     "booth": "-",
     "account": "adityakumar098k@gmail.com",
     "timestamp": "2026-10-08T15:55:42.996Z"
+  },
+  {
+    "id": 1791475109345,
+    "category": "assembly",
+    "state": "Madhya Pradesh",
+    "district": "Anjad",
+    "assembly": "city123",
+    "panchayat": "-",
+    "village": "-",
+    "ward": "-",
+    "booth": "1",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-08T15:58:29.345Z"
   }
 ]
