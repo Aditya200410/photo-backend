@@ -1598,19 +1598,22 @@ app.get('/api/voters', (req, res) => {
         // Village filter
         if (village) {
           const rowV = String(row.VILLAGE || row._meta_village || '').trim().toLowerCase();
-          if (rowV && rowV !== village.trim().toLowerCase()) return false;
+          const targetVillages = Array.isArray(village) ? village.map(v => String(v).trim().toLowerCase()) : [String(village).trim().toLowerCase()];
+          if (rowV && !targetVillages.includes(rowV)) return false;
         }
 
         // Ward filter
         if (ward && !req.query.wardStart) {
           const rowW = String(row.WARDNO !== undefined && row.WARDNO !== null ? row.WARDNO : (row['PANCHAYAT WARD NO'] ?? row._meta_ward ?? '')).trim();
-          if (rowW && rowW !== String(ward).trim()) return false;
+          const targetWards = Array.isArray(ward) ? ward.map(w => String(w).trim()) : [String(ward).trim()];
+          if (rowW && !targetWards.includes(rowW)) return false;
         }
 
         // Booth filter
         if (booth && !req.query.boothStart) {
           const rowB = String(row.BOOTH_NO !== undefined && row.BOOTH_NO !== null ? row.BOOTH_NO : (row.PARTNO ?? row._meta_booth ?? '')).trim();
-          if (rowB && rowB !== String(booth).trim()) return false;
+          const targetBooths = Array.isArray(booth) ? booth.map(b => String(b).trim()) : [String(booth).trim()];
+          if (rowB && !targetBooths.includes(rowB)) return false;
         }
 
         // Ward range

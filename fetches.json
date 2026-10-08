@@ -543,5 +543,57 @@
     "booth": "-",
     "account": "adityakumar098k@gmail.com",
     "timestamp": "2026-10-08T12:50:19.971Z"
+  },
+  {
+    "id": 1791464310183,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "सरवाड",
+    "panchayat": "सातोलाव",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-08T12:58:30.184Z"
+  },
+  {
+    "id": 1791469208108,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "-",
+    "panchayat": "-",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "Guest User",
+    "timestamp": "2026-10-08T14:20:08.108Z"
+  },
+  {
+    "id": 1791469347360,
+    "category": "panchayat",
+    "state": "Chandigarh",
+    "district": "Ganganagar",
+    "assembly": "Raisinghnagar",
+    "panchayat": "Bhompura",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "Guest User",
+    "timestamp": "2026-10-08T14:22:27.360Z"
+  },
+  {
+    "id": 1791469578011,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "-",
+    "panchayat": "-",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "Guest User",
+    "timestamp": "2026-10-08T14:26:18.011Z"
   }
 ]

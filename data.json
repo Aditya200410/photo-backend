@@ -274,5 +274,23 @@
     "balance_after": 598.5,
     "account": "adityakumar098k@gmail.com",
     "timestamp": "2026-10-08T12:40:06.985Z"
+  },
+  {
+    "id": 1791469592924,
+    "option_type": "Option 2",
+    "ward_no": 1,
+    "part_no": 26,
+    "serial_no": 13,
+    "voter_name": "NYALA",
+    "pages_count": 1,
+    "cards_per_page": 8,
+    "slips_count": 8,
+    "has_image": false,
+    "rate_per_page": 0.2,
+    "rate_per_slip": 0.2,
+    "cost": 0.2,
+    "balance_after": null,
+    "account": "Guest User",
+    "timestamp": "2026-10-08T14:26:32.924Z"
   }
 ]
