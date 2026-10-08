@@ -149,7 +149,9 @@ if (!fs.existsSync(settingsFilePath)) {
     privacyPolicyText: "This is the default privacy policy. Update this in the admin panel.",
     termsOfServiceText: "These are the default terms of service. Update this in the admin panel.",
     qrCodeImage: "https://via.placeholder.com/200?text=Scan+QR+Code",
-    upiId: "elections@upi"
+    upiId: "elections@upi",
+    rateWithoutImage: 0.10,
+    rateWithImage: 0.12
   };
   fs.writeFileSync(settingsFilePath, JSON.stringify(defaultSettings, null, 2));
 } else {
@@ -160,6 +162,8 @@ if (!fs.existsSync(settingsFilePath)) {
   if (!settings.termsOfServiceText) { settings.termsOfServiceText = "These are the default terms of service. Update this in the admin panel."; updated = true; }
   if (!settings.qrCodeImage) { settings.qrCodeImage = "https://via.placeholder.com/200?text=Scan+QR+Code"; updated = true; }
   if (!settings.upiId) { settings.upiId = "elections@upi"; updated = true; }
+  if (settings.rateWithoutImage === undefined) { settings.rateWithoutImage = 0.10; updated = true; }
+  if (settings.rateWithImage === undefined) { settings.rateWithImage = 0.12; updated = true; }
   if (updated) fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2));
 }
 
@@ -209,7 +213,7 @@ app.post('/api/submit-utr', (req, res) => {
   const user = users.find(u => u.id === userId);
 
   if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.status !== 'pending_payment' && user.status !== 'pending_approval') {
+  if (user.status !== 'pending_payment' && user.status !== 'pending_approval' && user.status !== 'blocked') {
     return res.status(400).json({ error: 'Invalid user status' });
   }
 
@@ -236,6 +240,9 @@ app.post('/api/login', (req, res) => {
   }
   if (user.role !== 'admin' && user.status === 'pending_approval') {
     return res.status(403).json({ error: 'Account pending admin approval', userId: user.id, status: user.status });
+  }
+  if (user.role !== 'admin' && user.status === 'blocked') {
+    return res.status(403).json({ error: 'Your account is blocked due to False Payment Info', userId: user.id, status: user.status });
   }
 
   const token = jwt.sign({ email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '1h' });
@@ -359,18 +366,19 @@ app.post('/api/admin/update-credits', (req, res) => {
   res.json({ message: 'User credits updated successfully', credits: user.credits });
 });
 
-app.post('/api/admin/remove-user', (req, res) => {
-  const { userId } = req.body;
+app.post('/api/admin/toggle-block-user', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  const { userId, block } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
   let users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  const initialLength = users.length;
-  users = users.filter(u => u.id !== userId);
+  const user = users.find(u => u.id === userId);
 
-  if (users.length === initialLength) return res.status(404).json({ error: 'User not found' });
+  if (!user) return res.status(404).json({ error: 'User not found' });
 
+  user.status = block ? 'blocked' : 'active';
   fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-  res.json({ message: 'User access removed successfully' });
+  res.json({ message: `User access ${block ? 'blocked' : 'restored'} successfully`, status: user.status });
 });
 
 // GET endpoint for user print and credit deduction history
@@ -393,8 +401,8 @@ app.get('/api/user/print-history', authMiddleware, (req, res) => {
       creditHistory: user.creditHistory || [],
       prints: userPrints,
       rates: {
-        withoutImage: 0.10,
-        withImage: 0.12,
+        withoutImage: fs.existsSync(settingsFilePath) ? (Number(JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8')).rateWithoutImage) || 0.10) : 0.10,
+        withImage: fs.existsSync(settingsFilePath) ? (Number(JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8')).rateWithImage) || 0.12) : 0.12,
         unit: 'per page'
       }
     });
@@ -611,10 +619,15 @@ app.post('/api/prints', (req, res) => {
 
   // Credit calculation:
   // Rates are per PAGE:
-  // without image print = 10 paisa (₹0.10) per page
-  // with image print = 12 paisa (₹0.12) per page
+  let rateWithoutImage = 0.10;
+  let rateWithImage = 0.12;
+  if (fs.existsSync(settingsFilePath)) {
+    const settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
+    if (settings.rateWithoutImage !== undefined) rateWithoutImage = Number(settings.rateWithoutImage);
+    if (settings.rateWithImage !== undefined) rateWithImage = Number(settings.rateWithImage);
+  }
   const isImagePresent = Boolean(hasImage);
-  const ratePerPage = isImagePresent ? 0.12 : 0.10;
+  const ratePerPage = isImagePresent ? rateWithImage : rateWithoutImage;
   const numCardsPerPage = Number(cardsPerPage) || 8;
   const numPages = Math.max(1, Number(pagesCount) || 1);
   const actualSlipsCount = Number(slipsCount) || (numPages * numCardsPerPage);
@@ -622,6 +635,9 @@ app.post('/api/prints', (req, res) => {
 
   // Check and deduct credits for registered users (non-admin)
   if (currentUser && currentUser.role !== 'admin') {
+    if (currentUser.status === 'blocked') {
+      return res.status(403).json({ error: 'Your account is blocked due to False Payment Info. Cannot download slips.' });
+    }
     const currentBalance = Number(currentUser.credits) || 0;
     if (currentBalance < totalCost) {
       return res.status(402).json({

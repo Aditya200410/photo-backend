@@ -5,5 +5,7 @@
   "privacyPolicyText": "This is the default privacy policy. Update this in the admin panel.",
   "termsOfServiceText": "These are the default terms of service. Update this in the admin panel.",
   "qrCodeImage": "http://localhost:5000/api/uploads/Screenshot 2023-09-22 160119.png",
-  "upiId": "elections@upi"
+  "upiId": "elections@upi",
+  "rateWithoutImage": 0.2,
+  "rateWithImage": 0.22
 }

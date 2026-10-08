@@ -6,7 +6,7 @@
     "phone": "",
     "role": "admin",
     "status": "active",
-    "passwordHash": "$2b$10$675iWXkwwLNL21qrADbeHekcyTmXxJg7N.1O.dCePEVdywbRp9/ma"
+    "passwordHash": "$2b$10$n3IXgaZA8saRwdfqE.AfBu9726eYCHvl97K.3wr1ZOMz2l0ilNmbq"
   },
   {
     "id": "1791101026923",
@@ -16,9 +16,45 @@
     "role": "user",
     "status": "active",
     "passwordHash": "$2b$10$/FGlsd.0H/wsvyALn/ZRpOXL1rdafR6ylPoeyFVzY4W/hX5lT1sjq",
-    "utr": "waqfas",
-    "credits": 98.9,
+    "utr": "33rfeQVGW",
+    "credits": 598.5,
     "creditHistory": [
+      {
+        "id": 1791463206982,
+        "type": "PRINT_DEDUCTION",
+        "description": "Batch Slips Option 1 (1 page [12 slips] without photo @ ₹0.10/page)",
+        "amount": -0.2,
+        "cost": 0.2,
+        "rate": 0.2,
+        "rate_per_page": 0.2,
+        "hasImage": false,
+        "pagesCount": 1,
+        "slipsCount": 12,
+        "balanceAfter": 598.5,
+        "timestamp": "2026-10-08T12:40:06.982Z"
+      },
+      {
+        "id": 1791463049490,
+        "type": "PRINT_DEDUCTION",
+        "description": "Option 2 (1 page [12 slips] without photo @ ₹0.10/page)",
+        "amount": -0.2,
+        "cost": 0.2,
+        "rate": 0.2,
+        "rate_per_page": 0.2,
+        "hasImage": false,
+        "pagesCount": 1,
+        "slipsCount": 12,
+        "balanceAfter": 598.7,
+        "timestamp": "2026-10-08T12:37:29.490Z"
+      },
+      {
+        "id": 1791393589415,
+        "type": "CREDIT_ADDED",
+        "description": "Admin manual credit top-up",
+        "amount": 500,
+        "balanceAfter": 598.9,
+        "timestamp": "2026-10-07T17:19:49.415Z"
+      },
       {
         "id": 1791217668987,
         "type": "PRINT_DEDUCTION",
@@ -63,8 +99,40 @@
     "phone": "9876543210",
     "email": "test@example.com",
     "role": "user",
-    "status": "pending_approval",
+    "status": "active",
     "passwordHash": "$2b$10$70glON.fzk9Gv4Eatm9cKu5sZLCJgQz9O8s0yahWAodFbFb/emkpG",
-    "utr": "123456789012"
+    "utr": "123456789012",
+    "credits": 100,
+    "creditHistory": [
+      {
+        "id": 1791393745866,
+        "type": "CREDIT_ADDED",
+        "description": "Initial credit granted upon approval (UTR: 123456789012)",
+        "amount": 100,
+        "balanceAfter": 100,
+        "timestamp": "2026-10-07T17:22:25.866Z"
+      }
+    ]
+  },
+  {
+    "id": "1791393370559",
+    "name": "aditya Kumar",
+    "phone": "1234567890",
+    "email": "adityakumar@gmail.com",
+    "role": "user",
+    "status": "active",
+    "passwordHash": "$2b$10$tTqDNZScjIXv3uKTV4R/ROaaLn2v/FhCNIpd3jQi70SCfvsk3pfNa",
+    "utr": "1234567890",
+    "credits": 100,
+    "creditHistory": [
+      {
+        "id": 1791394856318,
+        "type": "CREDIT_ADDED",
+        "description": "Initial credit granted upon approval (UTR: 1234567890)",
+        "amount": 100,
+        "balanceAfter": 100,
+        "timestamp": "2026-10-07T17:40:56.318Z"
+      }
+    ]
   }
 ]

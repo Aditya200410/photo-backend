@@ -238,5 +238,41 @@
     "balance_after": 98.9,
     "account": "adityakumar098k@gmail.com",
     "timestamp": "2026-10-05T16:27:48.988Z"
+  },
+  {
+    "id": 1791463049491,
+    "option_type": "Option 2",
+    "ward_no": 1,
+    "part_no": 26,
+    "serial_no": 13,
+    "voter_name": "NYALA",
+    "pages_count": 1,
+    "cards_per_page": 12,
+    "slips_count": 12,
+    "has_image": false,
+    "rate_per_page": 0.2,
+    "rate_per_slip": 0.2,
+    "cost": 0.2,
+    "balance_after": 598.7,
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-08T12:37:29.491Z"
+  },
+  {
+    "id": 1791463206985,
+    "option_type": "Batch Slips Option 1",
+    "ward_no": "All",
+    "part_no": "All",
+    "serial_no": "ALL",
+    "voter_name": "Batch Print",
+    "pages_count": 1,
+    "cards_per_page": 12,
+    "slips_count": 12,
+    "has_image": false,
+    "rate_per_page": 0.2,
+    "rate_per_slip": 0.2,
+    "cost": 0.2,
+    "balance_after": 598.5,
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-08T12:40:06.985Z"
   }
 ]
