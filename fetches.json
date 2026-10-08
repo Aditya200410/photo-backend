@@ -699,5 +699,18 @@
     "booth": "1",
     "account": "adityakumar098k@gmail.com",
     "timestamp": "2026-10-08T15:58:29.345Z"
+  },
+  {
+    "id": 1791475231820,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "-",
+    "panchayat": "-",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "adityakumar098k@gmail.com",
+    "timestamp": "2026-10-08T16:00:31.820Z"
   }
 ]
