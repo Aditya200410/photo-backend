@@ -185,55 +185,75 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-app.post('/api/signup', (req, res) => {
-  const { name, phone, email, password } = req.body;
-  if (!name || !phone || !email || !password) return res.status(400).json({ error: 'All fields are required' });
+// OTP Store (in-memory for simplicity, normally use Redis/DB)
+const otpStore = new Map();
 
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email already exists' });
+const crypto = require('crypto');
+const { sendOtpSms } = require('./sms.service');
 
-  const newUser = {
-    id: Date.now().toString(),
-    name, phone, email,
-    role: 'user',
-    status: 'pending_payment',
-    passwordHash: bcrypt.hashSync(password, 10)
-  };
+app.post('/api/auth/send-otp', async (req, res) => {
+  const { name, email, phone } = req.body;
+  if (!name || !email || !phone) return res.status(400).json({ error: 'Name, email, and phone are required' });
 
-  users.push(newUser);
-  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-  res.json({ message: 'Signup successful', userId: newUser.id });
+  try {
+    const otp = String(crypto.randomInt(100000, 1000000));
+    
+    // Store user data alongside OTP
+    otpStore.set(phone, {
+      otp,
+      name,
+      email,
+      phone,
+      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+    });
+
+    await sendOtpSms(phone, otp);
+    res.json({ message: 'OTP sent successfully' });
+  } catch (err) {
+    console.error('OTP Send Error:', err);
+    res.status(502).json({ error: 'Could not send OTP' });
+  }
 });
 
-app.post('/api/submit-utr', (req, res) => {
-  const { userId, utr } = req.body;
-  if (!userId || !utr) return res.status(400).json({ error: 'User ID and UTR are required' });
+app.post('/api/auth/verify-otp', (req, res) => {
+  const { phone, otp } = req.body;
+  if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
 
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  const user = users.find(u => u.id === userId);
-
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.status !== 'pending_payment' && user.status !== 'pending_approval' && user.status !== 'blocked') {
-    return res.status(400).json({ error: 'Invalid user status' });
+  const record = otpStore.get(phone);
+  if (!record) return res.status(400).json({ error: 'OTP expired or not found' });
+  
+  if (record.otp !== otp) return res.status(400).json({ error: 'Invalid OTP' });
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(phone);
+    return res.status(400).json({ error: 'OTP expired' });
   }
 
-  user.status = 'pending_approval';
-  user.utr = utr;
-  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-  res.json({ message: 'UTR submitted successfully. Please wait for admin approval.' });
-});
-
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  // OTP is valid, now login or create user
+  otpStore.delete(phone);
 
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  const user = users.find(u => u.email === email);
+  let user = users.find(u => u.phone === phone || u.email === record.email);
 
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-
-  const isMatch = bcrypt.compareSync(password, user.passwordHash);
-  if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+  if (!user) {
+    // Create new user if not exists
+    user = {
+      id: Date.now().toString(),
+      name: record.name,
+      email: record.email,
+      phone: record.phone,
+      role: 'user',
+      status: 'pending_payment',
+    };
+    users.push(user);
+    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+  } else {
+    // Update existing user's details if needed
+    let updated = false;
+    if (!user.phone && record.phone) { user.phone = record.phone; updated = true; }
+    if (updated) {
+      fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+    }
+  }
 
   if (user.role !== 'admin' && user.status === 'pending_payment') {
     return res.status(403).json({ error: 'Payment pending', userId: user.id, status: user.status });
@@ -246,7 +266,7 @@ app.post('/api/login', (req, res) => {
   }
 
   const token = jwt.sign({ email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token, role: user.role || 'user', status: user.status });
+  res.json({ token, role: user.role || 'user', status: user.status, message: 'Login successful' });
 });
 
 app.get('/api/me', authMiddleware, (req, res) => {
