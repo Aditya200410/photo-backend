@@ -7,7 +7,7 @@ const cfg = {
   appName: process.env.SMS_APP_NAME || 'School Sarthi',
   poweredBy: process.env.SMS_POWERED_BY || 'School Sarthi',
   templateId: process.env.SMS_TEMPLATE_ID_LOGIN || '1077104580057767222',
-  templateText: 'Welcome to {app}, powered by {powered}. Your OTP for registration {otp}. This OTP is valid for 10 minutes. Please do not share it with anyone.BGADPL',
+  templateText: 'Welcome to online voter slip the otp {otp} is valid for 10 mins',
 };
 
 function smsError(message, code) {
