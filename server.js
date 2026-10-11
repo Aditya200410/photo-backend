@@ -445,6 +445,100 @@ app.get('/api/user/print-history', authMiddleware, (req, res) => {
   }
 });
 
+// Admin: Get complete user details, print history, fetch records, credit requests, and spending ledger
+app.get('/api/admin/user-details/:identifier', authMiddleware, (req, res) => {
+  try {
+    const { identifier } = req.params;
+    const users = readJsonSafe(usersFilePath, []);
+    const user = users.find(u => 
+      u.id === identifier || 
+      (u.phone && u.phone === identifier) || 
+      (u.email && u.email === identifier)
+    );
+
+    const creditRequests = readJsonSafe(creditRequestsFilePath, []);
+    const userCreditRequests = creditRequests.filter(r => 
+      (user && (r.userId === user.id || r.userPhone === user.phone || r.userEmail === user.email)) ||
+      r.userId === identifier || 
+      r.userPhone === identifier || 
+      r.userEmail === identifier
+    ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const printsData = readJsonSafe(dataFilePath, []);
+    const phone = user ? user.phone : identifier;
+    const email = user ? user.email : identifier;
+    const name = user ? user.name : (userCreditRequests[0]?.userName || identifier);
+
+    const userPrints = printsData.filter(p => {
+      const acc = String(p.account || '');
+      const accPhone = String(p.accountPhone || '');
+      const accName = String(p.accountName || '');
+      return (phone && (acc === phone || accPhone === phone)) ||
+             (email && acc === email) ||
+             (name && accName && accName.toLowerCase() === name.toLowerCase());
+    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const fetchLogsPath = path.join(__dirname, 'fetches.json');
+    const fetchesData = readJsonSafe(fetchLogsPath, []);
+    const userFetches = fetchesData.filter(f => {
+      const acc = String(f.account || '');
+      const accPhone = String(f.accountPhone || '');
+      const accName = String(f.accountName || '');
+      return (phone && (acc === phone || accPhone === phone)) ||
+             (email && acc === email) ||
+             (name && accName && accName.toLowerCase() === name.toLowerCase());
+    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    const totalSpent = userPrints.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+    const totalPages = userPrints.reduce((sum, p) => sum + (Number(p.pages_count) || 0), 0);
+    const totalSlips = userPrints.reduce((sum, p) => sum + (Number(p.slips_count) || 0), 0);
+    const totalApprovedCredits = userCreditRequests
+      .filter(r => r.status === 'approved')
+      .reduce((sum, r) => sum + (Number(r.approvedAmount || r.amount) || 0), 0);
+
+    const safeUser = user ? {
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      credits: Number(user.credits) || 0,
+      utr: user.utr,
+      creditHistory: user.creditHistory || []
+    } : {
+      id: identifier,
+      name: userCreditRequests[0]?.userName || identifier,
+      phone: userCreditRequests[0]?.userPhone || identifier,
+      email: userCreditRequests[0]?.userEmail || identifier,
+      role: 'user',
+      status: 'active',
+      credits: 0,
+      utr: userCreditRequests[0]?.utr || '',
+      creditHistory: []
+    };
+
+    res.json({
+      user: safeUser,
+      creditRequests: userCreditRequests,
+      prints: userPrints,
+      fetches: userFetches,
+      summary: {
+        currentCredits: safeUser.credits,
+        totalApprovedCredits: Math.round(totalApprovedCredits * 100) / 100,
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        totalPrintsCount: userPrints.length,
+        totalPages,
+        totalSlips,
+        totalFetchesCount: userFetches.length
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching admin user details:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // --- CREDIT INCREASE / RECHARGE REQUEST ENDPOINTS ---
 
 // User: Submit a new credit increase request with UPI & UTR
