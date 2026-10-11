@@ -92,13 +92,25 @@ const usersFilePath = path.join(__dirname, 'users.json');
 const settingsFilePath = path.join(__dirname, 'settings.json');
 const creditRequestsFilePath = path.join(__dirname, 'credit-requests.json');
 
-// Initialize data files if they don't exist
-if (!fs.existsSync(dataFilePath)) {
-  fs.writeFileSync(dataFilePath, JSON.stringify([]));
+// Safe JSON helper to prevent crashes on empty files
+function readJsonSafe(filePath, defaultVal = []) {
+  try {
+    if (!fs.existsSync(filePath)) return defaultVal;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    if (!content || !content.trim()) return defaultVal;
+    return JSON.parse(content);
+  } catch (err) {
+    console.error(`Error reading ${filePath}:`, err);
+    return defaultVal;
+  }
 }
-if (!fs.existsSync(creditRequestsFilePath)) {
-  fs.writeFileSync(creditRequestsFilePath, JSON.stringify([]));
-}
+
+// Initialize data files if they don't exist or are empty
+[dataFilePath, creditRequestsFilePath].forEach(f => {
+  if (!fs.existsSync(f) || !fs.readFileSync(f, 'utf-8').trim()) {
+    fs.writeFileSync(f, JSON.stringify([]));
+  }
+});
 // Ensure users file exists and configure admin strictly from environment variable
 function syncAdminFromEnv() {
   let users = [];
@@ -192,8 +204,8 @@ const crypto = require('crypto');
 const { sendOtpSms } = require('./sms.service');
 
 app.post('/api/auth/send-otp', async (req, res) => {
-  const { name, email, phone } = req.body;
-  if (!name || !email || !phone) return res.status(400).json({ error: 'Name, email, and phone are required' });
+  const { name, phone } = req.body;
+  if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
 
   try {
     const otp = String(crypto.randomInt(100000, 1000000));
@@ -202,7 +214,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
     otpStore.set(phone, {
       otp,
       name,
-      email,
       phone,
       expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
     });
@@ -232,46 +243,46 @@ app.post('/api/auth/verify-otp', (req, res) => {
   otpStore.delete(phone);
 
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  let user = users.find(u => u.phone === phone || u.email === record.email);
+  let user = users.find(u => (phone && u.phone === phone) || (record.email && u.email === record.email));
 
   if (!user) {
-    // Create new user if not exists
+    // Create new user if not exists - instantly active, no activation needed!
     user = {
       id: Date.now().toString(),
       name: record.name,
-      email: record.email,
       phone: record.phone,
+      email: record.phone,
       role: 'user',
-      status: 'pending_payment',
+      status: 'active',
+      credits: 0,
+      creditHistory: []
     };
     users.push(user);
     fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
   } else {
-    // Update existing user's details if needed
+    // If existing user was pending_payment or pending_approval, activate them
     let updated = false;
+    if (user.status === 'pending_payment' || user.status === 'pending_approval') {
+      user.status = 'active';
+      updated = true;
+    }
     if (!user.phone && record.phone) { user.phone = record.phone; updated = true; }
     if (updated) {
       fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
     }
   }
 
-  if (user.role !== 'admin' && user.status === 'pending_payment') {
-    return res.status(403).json({ error: 'Payment pending', userId: user.id, status: user.status });
-  }
-  if (user.role !== 'admin' && user.status === 'pending_approval') {
-    return res.status(403).json({ error: 'Account pending admin approval', userId: user.id, status: user.status });
-  }
   if (user.role !== 'admin' && user.status === 'blocked') {
     return res.status(403).json({ error: 'Your account is blocked due to False Payment Info', userId: user.id, status: user.status });
   }
 
-  const token = jwt.sign({ email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ id: user.id, phone: user.phone, email: user.email || user.phone, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '1h' });
   res.json({ token, role: user.role || 'user', status: user.status, message: 'Login successful' });
 });
 
 app.get('/api/me', authMiddleware, (req, res) => {
   const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  const user = users.find(u => u.email === req.user.email);
+  const user = users.find(u => (req.user.id && u.id === req.user.id) || (req.user.phone && u.phone === req.user.phone) || (req.user.email && u.email === req.user.email));
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
@@ -317,7 +328,7 @@ app.post('/api/admin/verify-password', (req, res) => {
 
 // Admin User endpoints
 app.get('/api/admin/users', (req, res) => {
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const users = readJsonSafe(usersFilePath, []);
   const safeUsers = users.map(u => {
     const { passwordHash, ...rest } = u;
     rest.credits = rest.credits !== undefined ? Number(rest.credits) : 0;
@@ -404,16 +415,18 @@ app.post('/api/admin/toggle-block-user', authMiddleware, (req, res) => {
 // GET endpoint for user print and credit deduction history
 app.get('/api/user/print-history', authMiddleware, (req, res) => {
   try {
-    const userEmail = req.user.email;
     const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-    const user = users.find(u => u.email === userEmail);
+    const user = users.find(u => (req.user.id && u.id === req.user.id) || (req.user.phone && u.phone === req.user.phone) || (req.user.email && u.email === req.user.email));
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     let printsData = [];
     if (fs.existsSync(dataFilePath)) {
       printsData = JSON.parse(fs.readFileSync(dataFilePath, 'utf-8'));
     }
-    const userPrints = printsData.filter(p => p.account === userEmail);
+    const userPrints = printsData.filter(p => 
+      (user.phone && (p.account === user.phone || p.accountPhone === user.phone)) || 
+      (user.email && p.account === user.email)
+    );
     userPrints.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     res.json({
@@ -448,7 +461,7 @@ app.post('/api/user/credit-request', authMiddleware, (req, res) => {
     }
 
     const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-    const user = users.find(u => u.email === req.user.email);
+    const user = users.find(u => (req.user.id && u.id === req.user.id) || (req.user.phone && u.phone === req.user.phone) || (req.user.email && u.email === req.user.email));
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const requests = fs.existsSync(creditRequestsFilePath)
@@ -459,8 +472,8 @@ app.post('/api/user/credit-request', authMiddleware, (req, res) => {
       id: Date.now().toString(),
       userId: user.id,
       userName: user.name || 'User',
-      userEmail: user.email,
-      userPhone: user.phone || '',
+      userEmail: user.phone || user.email || '',
+      userPhone: user.phone || req.user.phone || '',
       amount: Math.round(reqAmount * 100) / 100,
       utr: utr.trim(),
       notes: notes ? notes.trim() : '',
@@ -488,7 +501,11 @@ app.get('/api/user/credit-requests', authMiddleware, (req, res) => {
     const requests = fs.existsSync(creditRequestsFilePath)
       ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'))
       : [];
-    const userRequests = requests.filter(r => r.userEmail === req.user.email);
+    const userRequests = requests.filter(r => 
+      (req.user.id && r.userId === req.user.id) || 
+      (req.user.phone && (r.userPhone === req.user.phone || r.userEmail === req.user.phone)) || 
+      (req.user.email && (r.userEmail === req.user.email || r.userPhone === req.user.email))
+    );
     userRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.json(userRequests);
   } catch (err) {
@@ -500,16 +517,16 @@ app.get('/api/user/credit-requests', authMiddleware, (req, res) => {
 // Admin: Get all credit increase requests
 app.get('/api/admin/credit-requests', authMiddleware, (req, res) => {
   try {
-    const requests = fs.existsSync(creditRequestsFilePath)
-      ? JSON.parse(fs.readFileSync(creditRequestsFilePath, 'utf-8'))
-      : [];
-    const users = fs.existsSync(usersFilePath)
-      ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'))
-      : [];
+    const requests = readJsonSafe(creditRequestsFilePath, []);
+    const users = readJsonSafe(usersFilePath, []);
 
     // Enrich requests with current user credit balance
     const enriched = requests.map(r => {
-      const u = users.find(user => user.id === r.userId || user.email === r.userEmail);
+      const u = users.find(user => 
+        (r.userId && user.id === r.userId) || 
+        (r.userPhone && user.phone === r.userPhone) || 
+        (r.userEmail && (user.email === r.userEmail || user.phone === r.userEmail))
+      );
       return {
         ...r,
         currentUserCredits: u ? (Number(u.credits) || 0) : 0
@@ -544,7 +561,11 @@ app.post('/api/admin/approve-credit-request', authMiddleware, (req, res) => {
     }
 
     const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-    const user = users.find(u => u.id === request.userId || u.email === request.userEmail);
+    const user = users.find(u => 
+      (request.userId && u.id === request.userId) || 
+      (request.userPhone && u.phone === request.userPhone) || 
+      (request.userEmail && (u.email === request.userEmail || u.phone === request.userEmail))
+    );
     if (!user) return res.status(404).json({ error: 'Associated user not found' });
 
     const finalAmount = approvedAmount !== undefined && !isNaN(parseFloat(approvedAmount))
@@ -626,15 +647,17 @@ app.post('/api/prints', (req, res) => {
   if (token && token !== 'DUMMY') {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      accountDetails = decoded.email || 'Guest User';
+      accountDetails = decoded.phone || decoded.email || 'Guest User';
+      const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
+      currentUser = users.find(u => (decoded.id && u.id === decoded.id) || (decoded.phone && u.phone === decoded.phone) || (u.phone && u.phone === accountDetails) || u.email === accountDetails);
     } catch (e) {
       // ignore invalid tokens for guest prints
     }
   }
 
   const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
-  if (accountDetails !== 'Guest User') {
-    currentUser = users.find(u => u.email === accountDetails);
+  if (accountDetails !== 'Guest User' && !currentUser) {
+    currentUser = users.find(u => (u.phone && u.phone === accountDetails) || u.email === accountDetails);
   }
 
   // Credit calculation:
@@ -737,7 +760,7 @@ app.get('/api/prints', authMiddleware, (req, res) => {
     // Enrich with user profile info
     const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
     const enriched = data.map(record => {
-      const user = users.find(u => u.email === record.account);
+      const user = users.find(u => (u.phone && (u.phone === record.account || u.phone === record.accountPhone)) || u.email === record.account);
       return {
         ...record,
         accountName: user?.name || null,
@@ -1387,7 +1410,7 @@ app.get('/api/fetches', authMiddleware, (req, res) => {
     // Enrich with user profile info
     const users = fs.existsSync(usersFilePath) ? JSON.parse(fs.readFileSync(usersFilePath, 'utf-8')) : [];
     const enriched = data.map(record => {
-      const user = users.find(u => u.email === record.account);
+      const user = users.find(u => (u.phone && (u.phone === record.account || u.phone === record.accountPhone)) || u.email === record.account);
       return {
         ...record,
         accountName: user?.name || null,
@@ -1502,7 +1525,7 @@ app.get('/api/voters', (req, res) => {
   if (token && token !== 'DUMMY') {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      accountDetails = decoded.email || 'Guest User';
+      accountDetails = decoded.phone || decoded.email || 'Guest User';
     } catch (e) { }
   }
 
