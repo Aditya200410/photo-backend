@@ -6,7 +6,7 @@
     "phone": "",
     "role": "admin",
     "status": "active",
-    "passwordHash": "$2b$10$tZ8KW9JMDizSux7YwYZdhOyaRQCZ0ZjTSriczZAeFqQZJDrcoFt3m"
+    "passwordHash": "$2b$10$4Hk9P.NhXxEnBAFgPxmAgOXC77zFkc1t2SztfMjlHeTNTvtwjLsCe"
   },
   {
     "id": "1791698892189",
@@ -15,8 +15,16 @@
     "email": "9114703231",
     "role": "user",
     "status": "active",
-    "credits": 50,
+    "credits": 5000050,
     "creditHistory": [
+      {
+        "id": 1792061530912,
+        "type": "CREDIT_ADDED",
+        "description": "Admin manual credit top-up",
+        "amount": 5000000,
+        "balanceAfter": 5000050,
+        "timestamp": "2026-10-15T10:52:10.912Z"
+      },
       {
         "id": 1791701199926,
         "type": "CREDIT_ADDED",
