@@ -180,20 +180,16 @@ if (!fs.existsSync(settingsFilePath)) {
 }
 
 const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-
-  if (token === 'DUMMY') {
-    req.user = { role: 'admin', email: 'admin' };
-    return next();
-  }
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized: Missing token' });
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
 
@@ -204,17 +200,25 @@ const crypto = require('crypto');
 const { sendOtpSms } = require('./sms.service');
 
 app.post('/api/auth/send-otp', async (req, res) => {
-  const { name, phone } = req.body;
-  if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: 'Phone number is required' });
 
   try {
     const otp = String(crypto.randomInt(100000, 1000000));
     
-    // Store user data alongside OTP
+    // Check if user already exists
+    const users = readJsonSafe(usersFilePath, []);
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const existingUser = users.find(u => {
+      const uPhone = String(u.phone || '').replace(/\D/g, '');
+      return uPhone && (uPhone === cleanPhone || (cleanPhone.length === 10 && uPhone.endsWith(cleanPhone)));
+    });
+
+    // Store OTP in memory
     otpStore.set(phone, {
       otp,
-      name,
       phone,
+      existingName: existingUser?.name || '',
       expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
     });
 
@@ -222,7 +226,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
     res.json({ message: 'OTP sent successfully' });
   } catch (err) {
     console.error('OTP Send Error:', err);
-    res.status(502).json({ error: 'Could not send OTP' });
+    res.status(502).json({ error: err.message || 'Could not send OTP' });
   }
 });
 
@@ -239,19 +243,23 @@ app.post('/api/auth/verify-otp', (req, res) => {
     return res.status(400).json({ error: 'OTP expired' });
   }
 
-  // OTP is valid, now login or create user
+  // OTP is valid
   otpStore.delete(phone);
 
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  let user = users.find(u => (phone && u.phone === phone) || (record.email && u.email === record.email));
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  const users = readJsonSafe(usersFilePath, []);
+  let user = users.find(u => {
+    const uPhone = String(u.phone || '').replace(/\D/g, '');
+    return uPhone && (uPhone === cleanPhone || (cleanPhone.length === 10 && uPhone.endsWith(cleanPhone)));
+  });
 
   if (!user) {
-    // Create new user if not exists - instantly active, no activation needed!
+    // Create new user with phone; name will be prompted if missing
     user = {
       id: Date.now().toString(),
-      name: record.name,
-      phone: record.phone,
-      email: record.phone,
+      name: '',
+      phone: phone,
+      email: phone,
       role: 'user',
       status: 'active',
       credits: 0,
@@ -266,7 +274,7 @@ app.post('/api/auth/verify-otp', (req, res) => {
       user.status = 'active';
       updated = true;
     }
-    if (!user.phone && record.phone) { user.phone = record.phone; updated = true; }
+    if (!user.phone && phone) { user.phone = phone; updated = true; }
     if (updated) {
       fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
     }
@@ -276,16 +284,76 @@ app.post('/api/auth/verify-otp', (req, res) => {
     return res.status(403).json({ error: 'Your account is blocked due to False Payment Info', userId: user.id, status: user.status });
   }
 
-  const token = jwt.sign({ id: user.id, phone: user.phone, email: user.email || user.phone, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token, role: user.role || 'user', status: user.status, message: 'Login successful' });
+  const token = jwt.sign({ id: user.id, phone: user.phone, email: user.email || user.phone, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '30d' });
+  
+  const hasName = Boolean(user.name && user.name.trim());
+  res.json({ 
+    token, 
+    role: user.role || 'user', 
+    status: user.status, 
+    hasName,
+    user: {
+      id: user.id,
+      name: user.name || '',
+      phone: user.phone || ''
+    },
+    message: 'OTP verified successfully' 
+  });
 });
 
-app.get('/api/me', authMiddleware, (req, res) => {
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
-  const user = users.find(u => (req.user.id && u.id === req.user.id) || (req.user.phone && u.phone === req.user.phone) || (req.user.email && u.email === req.user.email));
+app.post('/api/auth/save-name', authMiddleware, (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  const users = readJsonSafe(usersFilePath, []);
+  const cleanPhone = String(req.user.phone || '').replace(/\D/g, '');
+  const user = users.find(u => {
+    if (req.user.id && u.id === req.user.id) return true;
+    const uPhone = String(u.phone || '').replace(/\D/g, '');
+    return uPhone && cleanPhone && (uPhone === cleanPhone || (cleanPhone.length === 10 && uPhone.endsWith(cleanPhone)));
+  });
+
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
+
+  user.name = name.trim();
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+
+  res.json({ 
+    success: true, 
+    message: 'Name saved successfully', 
+    user: {
+      id: user.id,
+      name: user.name,
+      phone: user.phone || ''
+    }
+  });
+});
+
+app.get('/api/me', authMiddleware, (req, res) => {
+  const users = readJsonSafe(usersFilePath, []);
+  let user = users.find(u => (req.user.id && u.id === req.user.id) || (req.user.phone && u.phone === req.user.phone) || (req.user.email && u.email === req.user.email));
+
+  if (!user && req.user.role === 'admin') {
+    user = {
+      id: 'admin',
+      name: 'Administrator',
+      email: req.user.email || ADMIN_EMAIL,
+      phone: '',
+      role: 'admin',
+      status: 'active',
+      credits: 999999,
+      creditHistory: []
+    };
+  }
+
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
   const { passwordHash, ...safeUser } = user;
   safeUser.credits = safeUser.credits !== undefined ? Number(safeUser.credits) : 0;
   safeUser.creditHistory = safeUser.creditHistory || [];
@@ -303,16 +371,16 @@ app.post('/api/admin/verify-password', (req, res) => {
 
   // Check directly against process.env.ADMIN_PASSWORD
   if (backendAdminPassword && password === backendAdminPassword) {
-    const token = jwt.sign({ email: ADMIN_EMAIL, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign({ id: 'admin', email: ADMIN_EMAIL, role: 'admin' }, JWT_SECRET, { expiresIn: '30d' });
     return res.json({ success: true, token });
   }
 
   // Also check against admin record in users.json
   try {
-    const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+    const users = readJsonSafe(usersFilePath, []);
     const adminUser = users.find(u => u.role === 'admin' || u.email === ADMIN_EMAIL);
     if (adminUser && adminUser.passwordHash && bcrypt.compareSync(password, adminUser.passwordHash)) {
-      const token = jwt.sign({ email: adminUser.email, role: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+      const token = jwt.sign({ id: adminUser.id || 'admin', email: adminUser.email, role: 'admin' }, JWT_SECRET, { expiresIn: '30d' });
       return res.json({ success: true, token });
     }
   } catch (e) {
@@ -327,7 +395,8 @@ app.post('/api/admin/verify-password', (req, res) => {
 });
 
 // Admin User endpoints
-app.get('/api/admin/users', (req, res) => {
+app.get('/api/admin/users', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
   const users = readJsonSafe(usersFilePath, []);
   const safeUsers = users.map(u => {
     const { passwordHash, ...rest } = u;
@@ -338,11 +407,12 @@ app.get('/api/admin/users', (req, res) => {
   res.json(safeUsers);
 });
 
-app.post('/api/admin/approve-user', (req, res) => {
+app.post('/api/admin/approve-user', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
   const { userId, credit } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const users = readJsonSafe(usersFilePath, []);
   const user = users.find(u => u.id === userId);
 
   if (!user) return res.status(404).json({ error: 'User not found' });
@@ -367,11 +437,12 @@ app.post('/api/admin/approve-user', (req, res) => {
   res.json({ message: 'User approved successfully', credits: user.credits });
 });
 
-app.post('/api/admin/update-credits', (req, res) => {
+app.post('/api/admin/update-credits', authMiddleware, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
   const { userId, amount, action = 'add' } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
-  const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf-8'));
+  const users = readJsonSafe(usersFilePath, []);
   const user = users.find(u => u.id === userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
