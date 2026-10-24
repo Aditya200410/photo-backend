@@ -1613,7 +1613,14 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
       await browser.close();
     }
 
-    fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+    let latestMetadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+    const targetIdx = latestMetadata.findIndex(m => m.id === fileId);
+    if (targetIdx !== -1) {
+      latestMetadata[targetIdx].generatedPdfs = fileMeta.generatedPdfs;
+      fs.writeFileSync(excelMetaPath, JSON.stringify(latestMetadata, null, 2));
+    } else {
+      fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+    }
     res.json({ success: true, generatedPdfs: fileMeta.generatedPdfs });
   } catch (err) {
     console.error('Error generating PDFs:', err);
