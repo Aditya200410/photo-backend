@@ -1549,7 +1549,36 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
   if (!fileMeta) return res.status(404).json({ error: 'File entry not found' });
 
   const jsonPath = path.join(__dirname, 'uploads', fileMeta.fileName + '.json');
-  if (!fs.existsSync(jsonPath)) return res.status(400).json({ error: 'Voter data json not found' });
+  const partDir = path.join(__dirname, 'uploads', fileMeta.fileName + '_panchayats');
+
+  let voters = [];
+  if (fs.existsSync(partDir)) {
+    const indexPath = path.join(partDir, '_index.json');
+    if (fs.existsSync(indexPath)) {
+      const pIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+      // Collect voters from all chunk files up to limit
+      for (const [pName, info] of Object.entries(pIndex)) {
+        const pFile = path.join(partDir, info.file);
+        if (fs.existsSync(pFile)) {
+          const chunk = JSON.parse(fs.readFileSync(pFile, 'utf-8'));
+          voters = voters.concat(chunk);
+          if (voters.length >= 3500) break;
+        }
+      }
+    }
+  }
+
+  if (voters.length === 0 && fs.existsSync(jsonPath)) {
+    try {
+      voters = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    } catch (e) {
+      console.warn('Error reading jsonPath:', e);
+    }
+  }
+
+  if (voters.length === 0) {
+    return res.status(400).json({ error: 'No voter data found for this file to generate PDFs' });
+  }
 
   try {
     const puppeteer = require('puppeteer');
@@ -1557,8 +1586,7 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
     const printSlipsDir = path.join(__dirname, 'uploads', 'print_slips');
     if (!fs.existsSync(printSlipsDir)) fs.mkdirSync(printSlipsDir, { recursive: true });
 
-    const voters = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-    const votersToProcess = voters.length > 5000 ? voters.slice(0, 3500) : voters;
+    const votersToProcess = voters.length > 3500 ? voters.slice(0, 3500) : voters;
 
     const launchOptions = {
       headless: 'new',
