@@ -214,5 +214,23 @@
     "balance_after": 5000049.6,
     "account": "9114703231",
     "timestamp": "2026-10-23T14:08:00.477Z"
+  },
+  {
+    "id": 1792842824860,
+    "option_type": "Batch Slips (Server PDF) - simple",
+    "ward_no": "-",
+    "part_no": "-",
+    "serial_no": "1-3264",
+    "voter_name": "Batch Print (Backend Pre-generated)",
+    "pages_count": 544,
+    "cards_per_page": 8,
+    "slips_count": 3264,
+    "has_image": false,
+    "rate_per_page": 0.2,
+    "rate_per_slip": 0.2,
+    "cost": 108.8,
+    "balance_after": 4999941.2,
+    "account": "9114703231",
+    "timestamp": "2026-10-24T11:53:44.861Z"
   }
 ]

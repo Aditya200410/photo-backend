@@ -349,5 +349,57 @@
     "booth": "-",
     "account": "9114703231",
     "timestamp": "2026-10-23T16:52:52.150Z"
+  },
+  {
+    "id": 1792842806101,
+    "category": "panchayat",
+    "state": "Chandigarh",
+    "district": "Ganganagar",
+    "assembly": "Raisinghnagar",
+    "panchayat": "Bhompura",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "9114703231",
+    "timestamp": "2026-10-24T11:53:26.101Z"
+  },
+  {
+    "id": 1792843750053,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "-",
+    "panchayat": "-",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "9114703231",
+    "timestamp": "2026-10-24T12:09:10.053Z"
+  },
+  {
+    "id": 1792843778403,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "-",
+    "panchayat": "-",
+    "village": "-",
+    "ward": "-",
+    "booth": "-",
+    "account": "9114703231",
+    "timestamp": "2026-10-24T12:09:38.403Z"
+  },
+  {
+    "id": 1792843924872,
+    "category": "panchayat",
+    "state": "Rajasthan",
+    "district": "अजमेर",
+    "assembly": "अरांई",
+    "panchayat": "अरांई",
+    "village": "विधानसभा क्षेत्र की संख्या एवं नामः- 98-किशनगढ़",
+    "ward": "2",
+    "booth": "73",
+    "account": "9114703231",
+    "timestamp": "2026-10-24T12:12:04.872Z"
   }
 ]
