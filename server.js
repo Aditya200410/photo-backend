@@ -1560,11 +1560,26 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
     const voters = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
     const votersToProcess = voters.length > 5000 ? voters.slice(0, 3500) : voters;
 
-    const browser = await puppeteer.launch({
+    const launchOptions = {
       headless: 'new',
-      channel: 'chrome',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--font-render-hinting=none'
+      ]
+    };
+    // If google-chrome or chromium is installed system-wide on Linux
+    if (fs.existsSync('/usr/bin/google-chrome')) {
+      launchOptions.executablePath = '/usr/bin/google-chrome';
+    } else if (fs.existsSync('/usr/bin/chromium-browser')) {
+      launchOptions.executablePath = '/usr/bin/chromium-browser';
+    } else if (fs.existsSync('/usr/bin/chromium')) {
+      launchOptions.executablePath = '/usr/bin/chromium';
+    }
+
+    const browser = await puppeteer.launch(launchOptions);
 
     if (!fileMeta.generatedPdfs) fileMeta.generatedPdfs = {};
 

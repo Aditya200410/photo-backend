@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer');
 
 // Formats requested by user:
 // 1. simple: 'Simple Voter Slip' (6 per page)
