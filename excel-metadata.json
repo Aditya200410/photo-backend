@@ -27337,6 +27337,47 @@
       }
     },
     "timestamp": "2026-10-04T19:06:49.747Z",
-    "generatedPdfs": {}
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_simple_1791139818987.pdf",
+        "sizeBytes": 13434470,
+        "sizeStr": "12.81 MB",
+        "pages": 584,
+        "voters": 3500,
+        "generatedAt": "2026-10-24T12:33:29.342Z"
+      },
+      "header": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_header_1791139818987.pdf",
+        "sizeBytes": 16314154,
+        "sizeStr": "15.56 MB",
+        "pages": 584,
+        "voters": 3500,
+        "generatedAt": "2026-10-24T12:34:32.836Z"
+      },
+      "symbol": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_symbol_1791139818987.pdf",
+        "sizeBytes": 23986875,
+        "sizeStr": "22.88 MB",
+        "pages": 438,
+        "voters": 3500,
+        "generatedAt": "2026-10-24T12:35:02.860Z"
+      },
+      "appeal": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_appeal_1791139818987.pdf",
+        "sizeBytes": 5173926,
+        "sizeStr": "4.93 MB",
+        "pages": 500,
+        "voters": 500,
+        "generatedAt": "2026-10-24T12:35:08.177Z"
+      },
+      "alphabetical": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_alphabetical_1791139818987.pdf",
+        "sizeBytes": 9134630,
+        "sizeStr": "8.71 MB",
+        "pages": 88,
+        "voters": 3500,
+        "generatedAt": "2026-10-24T12:35:12.081Z"
+      }
+    }
   }
 ]
