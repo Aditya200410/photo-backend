@@ -52,7 +52,49 @@
         "zillaNo": ""
       }
     },
-    "villageHierarchy": {}
+    "villageHierarchy": {},
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "FinalDetailsofVoter_ENGLISH_simple_1790251495488.pdf",
+        "sizeBytes": 13345596,
+        "sizeStr": "12.73 MB",
+        "pages": 584,
+        "voters": 3500,
+        "generatedAt": "2026-10-23T16:48:06.030Z"
+      },
+      "header": {
+        "fileName": "FinalDetailsofVoter_ENGLISH_header_1790251495488.pdf",
+        "sizeBytes": 16225832,
+        "sizeStr": "15.47 MB",
+        "pages": 584,
+        "voters": 3500,
+        "generatedAt": "2026-10-23T16:48:06.032Z"
+      },
+      "symbol": {
+        "fileName": "FinalDetailsofVoter_ENGLISH_symbol_1790251495488.pdf",
+        "sizeBytes": 23904570,
+        "sizeStr": "22.80 MB",
+        "pages": 438,
+        "voters": 3500,
+        "generatedAt": "2026-10-23T16:48:06.032Z"
+      },
+      "appeal": {
+        "fileName": "FinalDetailsofVoter_ENGLISH_appeal_1790251495488.pdf",
+        "sizeBytes": 5113045,
+        "sizeStr": "4.88 MB",
+        "pages": 500,
+        "voters": 500,
+        "generatedAt": "2026-10-23T16:48:06.032Z"
+      },
+      "alphabetical": {
+        "fileName": "FinalDetailsofVoter_ENGLISH_alphabetical_1790251495488.pdf",
+        "sizeBytes": 9126365,
+        "sizeStr": "8.70 MB",
+        "pages": 88,
+        "voters": 3500,
+        "generatedAt": "2026-10-23T16:48:06.032Z"
+      }
+    }
   },
   {
     "id": 1790870006315,
@@ -246,6 +288,48 @@
         ],
         "panchayat": "Bhompura"
       }
+    },
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_simple_1790870006315.pdf",
+        "sizeBytes": 12256222,
+        "sizeStr": "11.69 MB",
+        "pages": 544,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.054Z"
+      },
+      "header": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_header_1790870006315.pdf",
+        "sizeBytes": 14936799,
+        "sizeStr": "14.24 MB",
+        "pages": 544,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.055Z"
+      },
+      "symbol": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_symbol_1790870006315.pdf",
+        "sizeBytes": 22031035,
+        "sizeStr": "21.01 MB",
+        "pages": 408,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.055Z"
+      },
+      "appeal": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_appeal_1790870006315.pdf",
+        "sizeBytes": 5025910,
+        "sizeStr": "4.79 MB",
+        "pages": 500,
+        "voters": 500,
+        "generatedAt": "2026-10-23T16:48:06.055Z"
+      },
+      "alphabetical": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_alphabetical_1790870006315.pdf",
+        "sizeBytes": 8483960,
+        "sizeStr": "8.09 MB",
+        "pages": 82,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.055Z"
+      }
     }
   },
   {
@@ -275,7 +359,49 @@
         "senior": 605
       }
     },
-    "state": "Rajasthan"
+    "state": "Rajasthan",
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_simple_1790870069536.pdf",
+        "sizeBytes": 12256222,
+        "sizeStr": "11.69 MB",
+        "pages": 544,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.073Z"
+      },
+      "header": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_header_1790870069536.pdf",
+        "sizeBytes": 14936799,
+        "sizeStr": "14.24 MB",
+        "pages": 544,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.073Z"
+      },
+      "symbol": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_symbol_1790870069536.pdf",
+        "sizeBytes": 22031035,
+        "sizeStr": "21.01 MB",
+        "pages": 408,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.073Z"
+      },
+      "appeal": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_appeal_1790870069536.pdf",
+        "sizeBytes": 5025910,
+        "sizeStr": "4.79 MB",
+        "pages": 500,
+        "voters": 500,
+        "generatedAt": "2026-10-23T16:48:06.074Z"
+      },
+      "alphabetical": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_alphabetical_1790870069536.pdf",
+        "sizeBytes": 8483960,
+        "sizeStr": "8.09 MB",
+        "pages": 82,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.074Z"
+      }
+    }
   },
   {
     "id": 1791099815050,
@@ -330,7 +456,49 @@
         "zillaNo": ""
       }
     },
-    "villageHierarchy": {}
+    "villageHierarchy": {},
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_simple_1791099815050.pdf",
+        "sizeBytes": 91880,
+        "sizeStr": "89.7 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.075Z"
+      },
+      "header": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_header_1791099815050.pdf",
+        "sizeBytes": 109835,
+        "sizeStr": "107.3 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.075Z"
+      },
+      "symbol": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_symbol_1791099815050.pdf",
+        "sizeBytes": 122154,
+        "sizeStr": "119.3 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.075Z"
+      },
+      "appeal": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_appeal_1791099815050.pdf",
+        "sizeBytes": 161880,
+        "sizeStr": "158.1 KB",
+        "pages": 9,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.075Z"
+      },
+      "alphabetical": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_alphabetical_1791099815050.pdf",
+        "sizeBytes": 102702,
+        "sizeStr": "100.3 KB",
+        "pages": 1,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.075Z"
+      }
+    }
   },
   {
     "id": 1791100598920,
@@ -355,7 +523,49 @@
         "senior": 1
       }
     },
-    "timestamp": "2026-10-04T07:56:38.920Z"
+    "timestamp": "2026-10-04T07:56:38.920Z",
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_simple_1791100598920.pdf",
+        "sizeBytes": 92351,
+        "sizeStr": "90.2 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.076Z"
+      },
+      "header": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_header_1791100598920.pdf",
+        "sizeBytes": 110303,
+        "sizeStr": "107.7 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.077Z"
+      },
+      "symbol": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_symbol_1791100598920.pdf",
+        "sizeBytes": 122631,
+        "sizeStr": "119.8 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.077Z"
+      },
+      "appeal": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_appeal_1791100598920.pdf",
+        "sizeBytes": 162301,
+        "sizeStr": "158.5 KB",
+        "pages": 9,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.077Z"
+      },
+      "alphabetical": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_alphabetical_1791100598920.pdf",
+        "sizeBytes": 103208,
+        "sizeStr": "100.8 KB",
+        "pages": 1,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.077Z"
+      }
+    }
   },
   {
     "id": 1791100903298,
@@ -380,7 +590,49 @@
         "senior": 1
       }
     },
-    "timestamp": "2026-10-04T08:01:43.298Z"
+    "timestamp": "2026-10-04T08:01:43.298Z",
+    "generatedPdfs": {
+      "simple": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_simple_1791100903298.pdf",
+        "sizeBytes": 92226,
+        "sizeStr": "90.1 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.078Z"
+      },
+      "header": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_header_1791100903298.pdf",
+        "sizeBytes": 110196,
+        "sizeStr": "107.6 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.078Z"
+      },
+      "symbol": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_symbol_1791100903298.pdf",
+        "sizeBytes": 122501,
+        "sizeStr": "119.6 KB",
+        "pages": 2,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.078Z"
+      },
+      "appeal": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_appeal_1791100903298.pdf",
+        "sizeBytes": 161854,
+        "sizeStr": "158.1 KB",
+        "pages": 9,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.078Z"
+      },
+      "alphabetical": {
+        "fileName": "FinalDetailsofVoter_ENGLISH (2)_alphabetical_1791100903298.pdf",
+        "sizeBytes": 102619,
+        "sizeStr": "100.2 KB",
+        "pages": 1,
+        "voters": 9,
+        "generatedAt": "2026-10-23T16:48:06.078Z"
+      }
+    }
   },
   {
     "id": 1791139818987,

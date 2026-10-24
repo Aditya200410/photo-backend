@@ -81,6 +81,16 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads/print_slips', express.static(path.join(__dirname, 'uploads', 'print_slips')));
+
+app.get('/api/download/print_slips/:filename', (req, res) => {
+  const file = path.join(__dirname, 'uploads', 'print_slips', req.params.filename);
+  if (fs.existsSync(file)) {
+    res.download(file);
+  } else {
+    res.status(404).json({ error: 'PDF file not found' });
+  }
+});
 
 app.get('/api/download/:filename', (req, res) => {
   const file = path.join(__dirname, 'uploads', req.params.filename);
@@ -1527,6 +1537,62 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
 
   fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
   res.json({ message: 'File metadata updated successfully', data: metadata[fileIndex] });
+});
+
+// Generate PDFs on-demand for an Excel file
+app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
+  const fileId = parseInt(req.params.id);
+  if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
+
+  let metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
+  const fileMeta = metadata.find(m => m.id === fileId);
+  if (!fileMeta) return res.status(404).json({ error: 'File entry not found' });
+
+  const jsonPath = path.join(__dirname, 'uploads', fileMeta.fileName + '.json');
+  if (!fs.existsSync(jsonPath)) return res.status(400).json({ error: 'Voter data json not found' });
+
+  try {
+    const puppeteer = require('puppeteer');
+    const { FORMATS, generatePdfForFileAndFormat } = require('./pdfGenerator.service');
+    const printSlipsDir = path.join(__dirname, 'uploads', 'print_slips');
+    if (!fs.existsSync(printSlipsDir)) fs.mkdirSync(printSlipsDir, { recursive: true });
+
+    const voters = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    const votersToProcess = voters.length > 5000 ? voters.slice(0, 3500) : voters;
+
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      channel: 'chrome',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+
+    if (!fileMeta.generatedPdfs) fileMeta.generatedPdfs = {};
+
+    try {
+      for (const format of FORMATS) {
+        const formatVoters = (format.id === 'appeal' && votersToProcess.length > 500) ? votersToProcess.slice(0, 500) : votersToProcess;
+        const result = await generatePdfForFileAndFormat(browser, fileMeta, formatVoters, format, printSlipsDir);
+        if (result) {
+          fileMeta.generatedPdfs[format.id] = {
+            fileName: result.fileName,
+            sizeBytes: result.sizeBytes,
+            sizeStr: result.sizeStr,
+            pages: result.pages,
+            voters: result.voters,
+            generatedAt: new Date().toISOString()
+          };
+        }
+      }
+    } finally {
+      await browser.close();
+    }
+
+    fs.writeFileSync(excelMetaPath, JSON.stringify(metadata, null, 2));
+    res.json({ success: true, generatedPdfs: fileMeta.generatedPdfs });
+  } catch (err) {
+    console.error('Error generating PDFs:', err);
+    res.status(500).json({ error: err.message || 'Generation failed' });
+  }
 });
 
 app.delete('/api/excel-files/:id', (req, res) => {
