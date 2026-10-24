@@ -1570,13 +1570,24 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
         '--font-render-hinting=none'
       ]
     };
-    // If google-chrome or chromium is installed system-wide on Linux
-    if (fs.existsSync('/usr/bin/google-chrome')) {
-      launchOptions.executablePath = '/usr/bin/google-chrome';
-    } else if (fs.existsSync('/usr/bin/chromium-browser')) {
-      launchOptions.executablePath = '/usr/bin/chromium-browser';
-    } else if (fs.existsSync('/usr/bin/chromium')) {
-      launchOptions.executablePath = '/usr/bin/chromium';
+    const possibleBrowserPaths = [
+      // Windows standard paths
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      // Linux standard paths
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser'
+    ];
+
+    for (const p of possibleBrowserPaths) {
+      if (fs.existsSync(p)) {
+        launchOptions.executablePath = p;
+        break;
+      }
     }
 
     const browser = await puppeteer.launch(launchOptions);
