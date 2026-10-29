@@ -1595,7 +1595,10 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--font-render-hinting=none'
+        '--disable-software-rasterizer',
+        '--font-render-hinting=none',
+        '--no-first-run',
+        '--no-zygote'
       ]
     };
     const possibleBrowserPaths = [
@@ -1605,10 +1608,11 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
       'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
       'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
       // Linux standard paths
-      '/usr/bin/google-chrome',
       '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
       '/usr/bin/chromium',
-      '/usr/bin/chromium-browser'
+      '/usr/bin/chromium-browser',
+      '/snap/bin/chromium'
     ];
 
     for (const p of possibleBrowserPaths) {

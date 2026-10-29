@@ -18,11 +18,40 @@ async function run() {
   }
 
   const metadata = JSON.parse(fs.readFileSync(excelMetaPath, 'utf-8'));
-  const browser = await puppeteer.launch({
+  const possibleBrowserPaths = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium'
+  ];
+
+  const launchOptions = {
     headless: 'new',
-    channel: 'chrome',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-  });
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--font-render-hinting=none',
+      '--no-first-run',
+      '--no-zygote'
+    ]
+  };
+
+  for (const p of possibleBrowserPaths) {
+    if (fs.existsSync(p)) {
+      launchOptions.executablePath = p;
+      break;
+    }
+  }
+
+  const browser = await puppeteer.launch(launchOptions);
 
   try {
     for (const fileMeta of metadata) {
