@@ -193,46 +193,6 @@
       }
     },
     "generatedPdfs": {
-      "simple": {
-        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_simple_1790870006315.pdf",
-        "sizeBytes": 12256222,
-        "sizeStr": "11.69 MB",
-        "pages": 544,
-        "voters": 3264,
-        "generatedAt": "2026-10-23T16:48:06.054Z"
-      },
-      "header": {
-        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_header_1790870006315.pdf",
-        "sizeBytes": 14936799,
-        "sizeStr": "14.24 MB",
-        "pages": 544,
-        "voters": 3264,
-        "generatedAt": "2026-10-23T16:48:06.055Z"
-      },
-      "symbol": {
-        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_symbol_1790870006315.pdf",
-        "sizeBytes": 22031035,
-        "sizeStr": "21.01 MB",
-        "pages": 408,
-        "voters": 3264,
-        "generatedAt": "2026-10-23T16:48:06.055Z"
-      },
-      "appeal": {
-        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_appeal_1790870006315.pdf",
-        "sizeBytes": 5025910,
-        "sizeStr": "4.79 MB",
-        "pages": 500,
-        "voters": 500,
-        "generatedAt": "2026-10-23T16:48:06.055Z"
-      },
-      "alphabetical": {
-        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_alphabetical_1790870006315.pdf",
-        "sizeBytes": 8483960,
-        "sizeStr": "8.09 MB",
-        "pages": 82,
-        "voters": 3264,
-        "generatedAt": "2026-10-23T16:48:06.055Z"
-      },
       "simple8": {
         "fileName": "Bhompura_Raisinghnagar_Sriganganagar_symbol_1790870006315.pdf",
         "sizeBytes": 22031035,
@@ -252,6 +212,14 @@
         "generatedAt": "2026-10-23T16:48:06.055Z",
         "formatId": "header6",
         "formatName": "With Header (6 Slip/A4)"
+      },
+      "alphabetical": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_alphabetical_1790870006315.pdf",
+        "sizeBytes": 8483960,
+        "sizeStr": "8.09 MB",
+        "pages": 82,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.055Z"
       }
     }
   },
@@ -27358,46 +27326,6 @@
     },
     "timestamp": "2026-10-04T19:06:49.747Z",
     "generatedPdfs": {
-      "simple": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_simple_1791139818987.pdf",
-        "sizeBytes": 13434470,
-        "sizeStr": "12.81 MB",
-        "pages": 584,
-        "voters": 3500,
-        "generatedAt": "2026-10-24T12:34:41.671Z"
-      },
-      "header": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_header_1791139818987.pdf",
-        "sizeBytes": 16314154,
-        "sizeStr": "15.56 MB",
-        "pages": 584,
-        "voters": 3500,
-        "generatedAt": "2026-10-24T12:35:46.464Z"
-      },
-      "symbol": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_symbol_1791139818987.pdf",
-        "sizeBytes": 23986875,
-        "sizeStr": "22.88 MB",
-        "pages": 438,
-        "voters": 3500,
-        "generatedAt": "2026-10-24T12:36:10.082Z"
-      },
-      "appeal": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_appeal_1791139818987.pdf",
-        "sizeBytes": 5173926,
-        "sizeStr": "4.93 MB",
-        "pages": 500,
-        "voters": 500,
-        "generatedAt": "2026-10-24T12:36:15.127Z"
-      },
-      "alphabetical": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_alphabetical_1791139818987.pdf",
-        "sizeBytes": 9134630,
-        "sizeStr": "8.71 MB",
-        "pages": 88,
-        "voters": 3500,
-        "generatedAt": "2026-10-24T12:36:18.804Z"
-      },
       "simple8": {
         "fileName": "AJMER APP DATA COMPLETE SHEET_simple8_1791139818987.pdf",
         "formatId": "simple8",
@@ -27407,6 +27335,26 @@
         "sizeBytes": 13884717,
         "sizeStr": "13.24 MB",
         "generatedAt": "2026-11-01T10:42:59.442Z"
+      },
+      "simple10": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_simple10_1791139818987.pdf",
+        "sizeBytes": 12251538,
+        "sizeStr": "11.68 MB",
+        "pages": 350,
+        "voters": 3500,
+        "formatId": "simple10",
+        "formatName": "Without Header (10 Slip/A4)",
+        "generatedAt": "2026-11-01T13:05:52.462Z"
+      },
+      "simple12": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_simple12_1791139818987.pdf",
+        "sizeBytes": 12116361,
+        "sizeStr": "11.56 MB",
+        "pages": 292,
+        "voters": 3500,
+        "formatId": "simple12",
+        "formatName": "Without Header (12 Slip/A4)",
+        "generatedAt": "2026-11-01T13:12:18.991Z"
       },
       "header6": {
         "fileName": "AJMER APP DATA COMPLETE SHEET_header_1791139818987.pdf",
@@ -27428,25 +27376,13 @@
         "sizeStr": "13.24 MB",
         "generatedAt": "2026-11-01T10:43:11.488Z"
       },
-      "simple10": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_simple10_1791139818987.pdf",
-        "sizeBytes": 12251538,
-        "sizeStr": "11.68 MB",
-        "pages": 350,
+      "alphabetical": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_alphabetical_1791139818987.pdf",
+        "sizeBytes": 9134630,
+        "sizeStr": "8.71 MB",
+        "pages": 88,
         "voters": 3500,
-        "formatId": "simple10",
-        "formatName": "Without Header (10 Slip/A4)",
-        "generatedAt": "2026-11-01T13:05:52.462Z"
-      },
-      "simple12": {
-        "fileName": "AJMER APP DATA COMPLETE SHEET_simple12_1791139818987.pdf",
-        "sizeBytes": 12116361,
-        "sizeStr": "11.56 MB",
-        "pages": 292,
-        "voters": 3500,
-        "formatId": "simple12",
-        "formatName": "Without Header (12 Slip/A4)",
-        "generatedAt": "2026-11-01T13:12:18.991Z"
+        "generatedAt": "2026-10-24T12:36:18.804Z"
       }
     }
   }
