@@ -320,7 +320,8 @@ async function generatePdfForFileAndFormat(browser, fileMeta, votersRaw, format,
   const pdfBuf = await page.pdf({
     format: 'A4',
     printBackground: true,
-    preferCSSPageSize: true
+    preferCSSPageSize: true,
+    timeout: 600000
   });
 
   fs.writeFileSync(outFilePath, pdfBuf);

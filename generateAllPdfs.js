@@ -32,6 +32,7 @@ async function run() {
 
   const launchOptions = {
     headless: 'new',
+    protocolTimeout: 600000,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',

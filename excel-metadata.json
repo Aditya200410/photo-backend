@@ -232,6 +232,26 @@
         "pages": 82,
         "voters": 3264,
         "generatedAt": "2026-10-23T16:48:06.055Z"
+      },
+      "simple8": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_symbol_1790870006315.pdf",
+        "sizeBytes": 22031035,
+        "sizeStr": "21.01 MB",
+        "pages": 408,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.055Z",
+        "formatId": "simple8",
+        "formatName": "Without Header (8 Slip/A4)"
+      },
+      "header6": {
+        "fileName": "Bhompura_Raisinghnagar_Sriganganagar_header_1790870006315.pdf",
+        "sizeBytes": 14936799,
+        "sizeStr": "14.24 MB",
+        "pages": 544,
+        "voters": 3264,
+        "generatedAt": "2026-10-23T16:48:06.055Z",
+        "formatId": "header6",
+        "formatName": "With Header (6 Slip/A4)"
       }
     }
   },
@@ -27377,6 +27397,36 @@
         "pages": 88,
         "voters": 3500,
         "generatedAt": "2026-10-24T12:36:18.804Z"
+      },
+      "simple8": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_simple8_1791139818987.pdf",
+        "formatId": "simple8",
+        "formatName": "Without Header (8 Slip/A4)",
+        "pages": 438,
+        "voters": 3500,
+        "sizeBytes": 13884717,
+        "sizeStr": "13.24 MB",
+        "generatedAt": "2026-11-01T10:42:59.442Z"
+      },
+      "header6": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_header_1791139818987.pdf",
+        "sizeBytes": 16314154,
+        "sizeStr": "15.56 MB",
+        "pages": 584,
+        "voters": 3500,
+        "generatedAt": "2026-10-24T12:35:46.464Z",
+        "formatId": "header6",
+        "formatName": "With Header (6 Slip/A4)"
+      },
+      "header8": {
+        "fileName": "AJMER APP DATA COMPLETE SHEET_header8_1791139818987.pdf",
+        "formatId": "header8",
+        "formatName": "With Header (8 Slip/A4)",
+        "pages": 438,
+        "voters": 3500,
+        "sizeBytes": 13884717,
+        "sizeStr": "13.24 MB",
+        "generatedAt": "2026-11-01T10:43:11.488Z"
       }
     }
   }

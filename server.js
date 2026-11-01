@@ -1079,6 +1079,9 @@ function normalizeVoterRow(row) {
   const pcName = getField(row, ['PC NAME', 'PC_NAME', 'लोकसभा क्षेत्र', 'संसदीय क्षेत्र']);
   const pcNo = getField(row, ['PC NO', 'PC_NO']);
   const image = getField(row, ['IMAGE', 'PHOTO', 'फोटो']);
+  const statusRaw = getField(row, ['STATUS', 'status', 'DELETED', 'deleted', 'स्थिति', 'विलोपित', 'REMARK', 'remark']);
+  const statusStr = `${statusRaw} ${vFnameEn || ''} ${vFnameHi || ''}`.toLowerCase();
+  const isDeleted = /delet|विलोपित|हटाया/.test(statusStr) || String(statusRaw).trim().toUpperCase() === 'D';
 
   return {
     ...row,
@@ -1090,6 +1093,8 @@ function normalizeVoterRow(row) {
     BOOTH_NO: boothNo || (partNo || ''),
     SERIAL_NO: serialNo,
     IMAGE: image,
+    STATUS: statusRaw,
+    IS_DELETED: isDeleted ? 1 : 0,
     V_FNAME_EN: vFnameEn,
     V_LNAME_EN: vLnameEn,
     V_FNAME_HI: vFnameHi,
@@ -1120,11 +1125,12 @@ function normalizeVoterRow(row) {
 
 function calculateVoterStats(data) {
   let stats = {
-    totalVoters: data.length, maleVoters: 0, femaleVoters: 0,
+    totalVoters: data.length, maleVoters: 0, femaleVoters: 0, deletedVoters: 0,
     averageAge: 0, totalAge: 0, votersWithAge: 0,
     ageBrackets: { youth: 0, adult: 0, middle: 0, senior: 0 }
   };
   for (const v of data) {
+    if (v.IS_DELETED) stats.deletedVoters++;
     const gender = String(v.MSEX || v.FGENDER || v.SEX || v.GENDER || '').trim().toUpperCase();
     if (gender === 'M' || gender === 'MALE' || gender === 'पुरुष') stats.maleVoters++;
     else if (gender === 'F' || gender === 'FEMALE' || gender === 'महिला' || gender === 'स्त्री') stats.femaleVoters++;
@@ -1590,6 +1596,7 @@ app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
 
     const launchOptions = {
       headless: 'new',
+      protocolTimeout: 600000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
