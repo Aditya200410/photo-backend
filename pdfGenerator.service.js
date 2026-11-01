@@ -66,7 +66,7 @@ function mapVoter(voter, meta) {
   };
 }
 
-function renderSlipHtml(voter, format) {
+function renderSlipHtml(voter, format, bannerImage = null) {
   const hasHeader = Boolean(format.hasHeader);
   const cardsPerPage = format.cardsPerPage || 8;
 
@@ -87,7 +87,8 @@ function renderSlipHtml(voter, format) {
   return `
     <div style="width: 100%; height: 100%; border: 1.5px solid #000000; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; color: #000000; font-family: 'Noto Sans Devanagari', 'Segoe UI', Arial, sans-serif;">
       ${hasHeader ? `
-        <div style="width: 100%; height: ${headerH}; background: #ffffff; border-bottom: 1px solid #000000; flex-shrink: 0; box-sizing: border-box;">
+        <div style="width: 100%; height: ${headerH}; background: #ffffff; border-bottom: 1px solid #000000; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+          ${bannerImage ? `<img src="${bannerImage}" style="width: 100%; height: 100%; object-fit: fill; display: block;" />` : ''}
         </div>
         <div style="width: 100%; text-align: center; font-size: ${cutNoticeSize}; font-weight: 900; color: #000000; padding: 1px 0; border-bottom: 1px solid #000000; background: #ffffff; flex-shrink: 0;">
           मतदान केंद्र जाने से पहले ऊपर वाले इस भाग को काट दे
@@ -235,7 +236,7 @@ function renderAlphabeticalPageHtml(votersSlice, pageNum, totalPages, meta) {
   `;
 }
 
-function renderGridPageHtml(votersSlice, pageNum, totalPages, format, meta) {
+function renderGridPageHtml(votersSlice, pageNum, totalPages, format, meta, bannerImage = null) {
   const cardsPerPage = format.cardsPerPage || 8;
   const rows = cardsPerPage === 6 ? 3 : (cardsPerPage === 8 ? 4 : (cardsPerPage === 10 ? 5 : 6));
   const cols = 2;
@@ -259,7 +260,7 @@ function renderGridPageHtml(votersSlice, pageNum, totalPages, format, meta) {
           const isBottom = Math.floor(idx / 2) === rows - 1;
           return `
             <div style="width: calc(50% - ${gapH / 2}px); height: calc((100% - ${(rows - 1) * gapV}px) / ${rows}); margin-right: ${isRight ? 0 : gapH}px; margin-bottom: ${isBottom ? 0 : gapV}px; box-sizing: border-box; min-height: 0;">
-              ${renderSlipHtml(voter, format)}
+              ${renderSlipHtml(voter, format, bannerImage)}
             </div>
           `;
         }).join('')}
@@ -342,7 +343,65 @@ async function generatePdfForFileAndFormat(browser, fileMeta, votersRaw, format,
   };
 }
 
+
+async function generateFilteredPdfBuffer(browser, votersRaw, format, meta = {}, bannerImage = null) {
+  const voters = votersRaw.map(v => mapVoter(v, meta));
+  const totalVoters = voters.length;
+  if (totalVoters === 0) return null;
+
+  let sortedVoters = voters;
+  if (format.id === 'alphabetical') {
+    sortedVoters = [...voters].sort((a, b) => String(a.voterName).localeCompare(String(b.voterName), 'hi'));
+  }
+
+  const cardsPerPage = format.cardsPerPage || 8;
+  const totalPages = Math.ceil(totalVoters / cardsPerPage);
+
+  let fullHtml = `
+    <!DOCTYPE html>
+    <html lang="hi">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        @page { size: A4 portrait; margin: 0; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #ffffff; font-family: 'Noto Sans Devanagari', 'Segoe UI', Arial, sans-serif; }
+      </style>
+    </head>
+    <body>
+  `;
+
+  for (let p = 1; p <= totalPages; p++) {
+    const slice = sortedVoters.slice((p - 1) * cardsPerPage, p * cardsPerPage);
+    if (format.id === 'appeal') {
+      fullHtml += renderAppealHtml(slice[0], meta);
+    } else if (format.id === 'alphabetical') {
+      fullHtml += renderAlphabeticalPageHtml(slice, p, totalPages, meta);
+    } else {
+      fullHtml += renderGridPageHtml(slice, p, totalPages, format, meta, bannerImage);
+    }
+  }
+
+  fullHtml += `</body></html>`;
+
+  const page = await browser.newPage();
+  page.setDefaultNavigationTimeout(300000);
+  page.setDefaultTimeout(300000);
+  await page.setContent(fullHtml, { waitUntil: 'domcontentloaded', timeout: 300000 });
+
+  const pdfBuf = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    preferCSSPageSize: true,
+    timeout: 600000
+  });
+
+  await page.close();
+  return { pdfBuf, totalPages, totalVoters };
+}
+
 module.exports = {
   FORMATS,
-  generatePdfForFileAndFormat
+  generatePdfForFileAndFormat,
+  generateFilteredPdfBuffer
 };
