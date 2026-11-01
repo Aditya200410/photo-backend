@@ -376,5 +376,23 @@
     "balance_after": 4999962.4,
     "account": "9114703231",
     "timestamp": "2026-11-01T14:58:45.260Z"
+  },
+  {
+    "id": 1793547179886,
+    "option_type": "Batch Slips (Filtered PDF Engine) - simple8",
+    "ward_no": "-",
+    "part_no": "-",
+    "serial_no": "1-3947",
+    "voter_name": "Batch Print (Filtered)",
+    "pages_count": 494,
+    "cards_per_page": 8,
+    "slips_count": 3947,
+    "has_image": false,
+    "rate_per_page": 0.2,
+    "rate_per_slip": 0.2,
+    "cost": 98.8,
+    "balance_after": 4999951.2,
+    "account": "9114703231",
+    "timestamp": "2026-11-01T15:32:59.886Z"
   }
 ]

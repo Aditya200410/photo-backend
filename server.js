@@ -1546,6 +1546,132 @@ app.put('/api/excel-files/:id', upload.single('excelFile'), (req, res) => {
 });
 
 // Generate PDFs on-demand for an Excel file
+
+// Fast Native Chrome PDF generation for filtered voter slips with parallel chunking
+app.post('/api/generate-filtered-pdf', async (req, res) => {
+  try {
+    const {
+      voters = [],
+      formatId = 'simple8',
+      meta = {},
+      bannerImage = null,
+      pageRangeMode = 'all',
+      startPage = 1,
+      endPage = null
+    } = req.body;
+
+    if (!Array.isArray(voters) || voters.length === 0) {
+      return res.status(400).json({ error: 'No voter data provided' });
+    }
+
+    const { FORMATS, generateFilteredPdfBuffer } = require('./pdfGenerator.service');
+    const { PDFDocument } = require('pdf-lib');
+    const format = FORMATS.find(f => f.id === formatId) || FORMATS[0];
+
+    const cardsPerPage = format.cardsPerPage || 8;
+    const totalPages = Math.ceil(voters.length / cardsPerPage);
+
+    let votersToProcess = voters;
+    if (pageRangeMode === 'custom' && startPage) {
+      const s = Math.max(1, parseInt(startPage));
+      const e = Math.min(totalPages, parseInt(endPage || totalPages));
+      const startIdx = (s - 1) * cardsPerPage;
+      const endIdx = Math.min(voters.length, e * cardsPerPage);
+      votersToProcess = voters.slice(startIdx, endIdx);
+    }
+
+    // Launch headless Chromium
+    const puppeteer = require('puppeteer');
+    const launchOptions = {
+      headless: 'new',
+      protocolTimeout: 600000,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--font-render-hinting=none',
+        '--no-first-run',
+        '--no-zygote'
+      ]
+    };
+
+    const possibleBrowserPaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/snap/bin/chromium'
+    ];
+
+    for (const p of possibleBrowserPaths) {
+      if (fs.existsSync(p)) {
+        launchOptions.executablePath = p;
+        break;
+      }
+    }
+
+    const browser = await puppeteer.launch(launchOptions);
+    try {
+      // Chunk voters into sets of 200 voters (~25 pages) for ultra-fast rendering without memory bottlenecks
+      const CHUNK_SIZE = 200;
+      const chunks = [];
+      for (let i = 0; i < votersToProcess.length; i += CHUNK_SIZE) {
+        chunks.push(votersToProcess.slice(i, i + CHUNK_SIZE));
+      }
+
+      // If only 1 chunk, generate and return directly
+      if (chunks.length <= 1) {
+        const result = await generateFilteredPdfBuffer(browser, votersToProcess, format, meta, bannerImage);
+        if (!result || !result.pdfBuf) {
+          return res.status(500).json({ error: 'Failed to generate PDF buffer' });
+        }
+        const filename = `Voter-Slips-Filtered-${format.id}-${Date.now()}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', result.pdfBuf.length);
+        return res.end(result.pdfBuf);
+      }
+
+      // Concurrently process batches of up to 4 chunks at a time to maximize CPU throughput
+      const chunkBuffers = [];
+      const CONCURRENCY = 4;
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        const batch = chunks.slice(i, i + CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map(chunk => generateFilteredPdfBuffer(browser, chunk, format, meta, bannerImage))
+        );
+        chunkBuffers.push(...batchResults.map(r => r.pdfBuf));
+      }
+
+      // Merge all rendered chunk PDF buffers in order
+      const mergedPdf = await PDFDocument.create();
+      for (const buf of chunkBuffers) {
+        const doc = await PDFDocument.load(buf);
+        const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+        copiedPages.forEach(p => mergedPdf.addPage(p));
+      }
+
+      const finalPdfBytes = await mergedPdf.save();
+      const filename = `Voter-Slips-Filtered-${format.id}-${Date.now()}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', finalPdfBytes.length);
+      return res.end(Buffer.from(finalPdfBytes));
+    } finally {
+      await browser.close();
+    }
+  } catch (err) {
+    console.error('Error generating filtered PDF:', err);
+    res.status(500).json({ error: err.message || 'Internal server error while generating PDF' });
+  }
+});
+
 app.post('/api/excel-files/:id/generate-pdfs', async (req, res) => {
   const fileId = parseInt(req.params.id);
   if (!fs.existsSync(excelMetaPath)) return res.status(404).json({ error: 'Metadata file not found' });
