@@ -2,18 +2,28 @@ const fs = require('fs');
 const path = require('path');
 
 // Formats requested by user:
-// 1. simple: 'Simple Voter Slip' (6 per page)
-// 2. header: 'Voter Slip with Header (banner)' (6 per page)
-// 3. symbol: 'Voter Slip with Symbol' (8 per page)
-// 4. appeal: 'Personal Appeal Letter' (1 per page)
-// 5. alphabetical: 'Alphabetical Voter List' (40 voters / page)
+// 1. Without Header:
+//    - 'simple8': 8 Slip on A4 (without header)
+//    - 'simple10': 10 Slip on A4 (without header)
+//    - 'simple12': 12 Slip on A4 (without header)
+// 2. With Header:
+//    - 'header6': 6 Slip on A4 (with header / banner)
+//    - 'header8': 8 Slip on A4 (with header / banner)
+// 3. Alphabetical:
+//    - 'alphabetical': 40 entry / page
 
 const FORMATS = [
-  { id: 'simple', name: 'Simple Voter Slip', cardsPerPage: 6 },
-  { id: 'header', name: 'Voter Slip with Header', cardsPerPage: 6 },
-  { id: 'symbol', name: 'Voter Slip with Symbol', cardsPerPage: 8 },
-  { id: 'appeal', name: 'Personal Appeal Letter', cardsPerPage: 1 },
-  { id: 'alphabetical', name: 'Alphabetical Voter List', cardsPerPage: 40 }
+  // Without Header
+  { id: 'simple8', name: 'Without Header (8 Slip/A4)', cardsPerPage: 8, hasHeader: false, category: 'withoutHeader' },
+  { id: 'simple10', name: 'Without Header (10 Slip/A4)', cardsPerPage: 10, hasHeader: false, category: 'withoutHeader' },
+  { id: 'simple12', name: 'Without Header (12 Slip/A4)', cardsPerPage: 12, hasHeader: false, category: 'withoutHeader' },
+
+  // With Header
+  { id: 'header6', name: 'With Header (6 Slip/A4)', cardsPerPage: 6, hasHeader: true, category: 'withHeader' },
+  { id: 'header8', name: 'With Header (8 Slip/A4)', cardsPerPage: 8, hasHeader: true, category: 'withHeader' },
+
+  // Alphabetical
+  { id: 'alphabetical', name: 'Alphabetical Voter List (40 Entry/Page)', cardsPerPage: 40, hasHeader: false, category: 'alphabetical' }
 ];
 
 const cleanVal = (val, fallback = '-') => {
@@ -57,80 +67,85 @@ function mapVoter(voter, meta) {
 }
 
 function renderSlipHtml(voter, format) {
-  const hasHeader = format.id === 'header';
-  const hasSymbol = format.id === 'symbol';
+  const hasHeader = Boolean(format.hasHeader);
+  const cardsPerPage = format.cardsPerPage || 8;
+
+  // Adapt font sizes and line heights based on card density
+  const isDense = cardsPerPage >= 10;
+  const is12 = cardsPerPage >= 12;
+
+  const headerH = cardsPerPage === 6 ? '46px' : (cardsPerPage === 8 ? '36px' : '30px');
+  const headerFontSize = cardsPerPage === 6 ? '12px' : (cardsPerPage === 8 ? '10px' : '9px');
+  const cutNoticeSize = cardsPerPage === 6 ? '8px' : '7px';
+  const paddingBox = is12 ? '2px 5px 2px 5px' : (isDense ? '3px 6px 3px 6px' : '4px 8px 3px 8px');
+  const fontSizeBase = is12 ? '9.5px' : (isDense ? '10px' : '11px');
+  const labelSize = is12 ? '9.5px' : (isDense ? '10px' : '11px');
+  const valSize = is12 ? '10.5px' : (isDense ? '11.5px' : '12px');
+  const smallTextSize = is12 ? '8.5px' : (isDense ? '9px' : '10px');
 
   return `
-    <div style="width: 100%; height: 100%; border: 2px solid #000000; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; color: #000000; font-family: 'Noto Sans Devanagari', 'Segoe UI', Arial, sans-serif;">
+    <div style="width: 100%; height: 100%; border: 1.5px solid #000000; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; color: #000000; font-family: 'Noto Sans Devanagari', 'Segoe UI', Arial, sans-serif;">
       ${hasHeader ? `
-        <div style="width: 100%; height: 50px; background: #f97316; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; border-bottom: 1.5px solid #000000;">
-          <span>प्रत्याशी का नाम</span>
-          <span style="font-size: 9px; font-weight: 700;">को भारी मतों से विजयी बनायें</span>
+        <div style="width: 100%; height: ${headerH}; background: #ffffff; border-bottom: 1px solid #000000; flex-shrink: 0; box-sizing: border-box;">
         </div>
-        <div style="width: 100%; text-align: center; font-size: 8px; font-weight: 900; color: #000000; padding: 1.5px 0; border-bottom: 1.5px solid #000000; background: #ffffff;">
+        <div style="width: 100%; text-align: center; font-size: ${cutNoticeSize}; font-weight: 900; color: #000000; padding: 1px 0; border-bottom: 1px solid #000000; background: #ffffff; flex-shrink: 0;">
           मतदान केंद्र जाने से पहले ऊपर वाले इस भाग को काट दे
         </div>
       ` : ''}
 
-      <div style="padding: 5px 8px 4px 8px; display: flex; flex-direction: column; flex: 1; justify-content: space-between; font-size: 11px; line-height: 1.35; box-sizing: border-box; position: relative;">
-        ${hasSymbol ? `
-          <div style="position: absolute; right: 8px; top: 38px; width: 44px; height: 44px; border: 2px solid #059669; border-radius: 50%; background: #ecfdf5; display: flex; align-items: center; justify-content: center; color: #059669; font-size: 26px; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            ★
-          </div>
-        ` : ''}
-
+      <div style="padding: ${paddingBox}; display: flex; flex-direction: column; flex: 1; justify-content: space-between; font-size: ${fontSizeBase}; line-height: 1.25; box-sizing: border-box; min-height: 0;">
         <!-- Row 1: Ward & Part -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 5px;">
-            <span style="font-weight: bold; font-size: 11.5px;">वार्ड नं० :</span>
-            <div style="border: 1.5px solid #000000; min-width: 48px; padding: 0 6px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11.5px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-weight: bold; font-size: ${labelSize};">वार्ड नं० :</span>
+            <div style="border: 1px solid #000000; min-width: 36px; padding: 0 4px; height: ${isDense ? '15px' : '17px'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: ${valSize};">
               ${voter.wardNo}
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 5px;">
-            <span style="font-weight: bold; font-size: 11.5px;">भाग नं० :</span>
-            <div style="border: 1.5px solid #000000; min-width: 44px; padding: 0 6px; height: 18px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11.5px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-weight: bold; font-size: ${labelSize};">भाग नं० :</span>
+            <div style="border: 1px solid #000000; min-width: 34px; padding: 0 4px; height: ${isDense ? '15px' : '17px'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: ${valSize};">
               ${voter.partNo}
             </div>
           </div>
         </div>
 
         <!-- Row 2: Serial & EPIC -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-          <div style="display: flex; align-items: center; gap: 5px;">
-            <span style="font-weight: bold; font-size: 11.5px;">क्रम संख्या :</span>
-            <div style="border: 1.5px solid #000000; min-width: 58px; padding: 0 6px; height: 19px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-weight: bold; font-size: ${labelSize};">क्रम संख्या :</span>
+            <div style="border: 1px solid #000000; min-width: 48px; padding: 0 4px; height: ${isDense ? '16px' : '18px'}; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: ${valSize};">
               ${voter.serialNo}
             </div>
           </div>
-          <div style="font-weight: 900; font-size: 12px; font-family: monospace; letter-spacing: 0.3px;">
+          <div style="font-weight: 900; font-size: ${valSize}; font-family: monospace; letter-spacing: 0.2px;">
             ${voter.idNumber}
           </div>
         </div>
 
         <!-- Row 3: Name -->
-        <div style="display: flex; align-items: baseline; margin-top: 2px;">
-          <span style="font-weight: bold; font-size: 11.5px; white-space: nowrap; margin-right: 5px;">मतदाता का नाम :</span>
-          <span style="font-weight: 900; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${hasSymbol ? 'max-width: calc(100% - 150px);' : ''}">${voter.voterName}</span>
+        <div style="display: flex; align-items: baseline;">
+          <span style="font-weight: bold; font-size: ${labelSize}; white-space: nowrap; margin-right: 4px;">मतदाता का नाम :</span>
+          <span style="font-weight: 900; font-size: ${valSize}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${voter.voterName}</span>
         </div>
 
         <!-- Row 4: Relative -->
-        <div style="display: flex; align-items: baseline; margin-top: 1px;">
-          <span style="font-weight: bold; font-size: 11px; white-space: nowrap; margin-right: 5px;">पिता / पति का नाम :</span>
-          <span style="font-weight: 700; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${hasSymbol ? 'max-width: calc(100% - 160px);' : ''}">${voter.fatherHusbandName}</span>
+        <div style="display: flex; align-items: baseline;">
+          <span style="font-weight: bold; font-size: ${labelSize}; white-space: nowrap; margin-right: 4px;">पिता / पति :</span>
+          <span style="font-weight: 700; font-size: ${valSize}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${voter.fatherHusbandName}</span>
         </div>
 
         <!-- Row 5: House, Gender, Age -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1px; ${hasSymbol ? 'padding-right: 48px;' : ''}">
-          <div><span style="font-weight: bold; font-size: 11px;">मकान नं० : </span><span style="font-weight: 800; font-size: 11.5px;">${voter.houseNo}</span></div>
-          <div><span style="font-weight: bold; font-size: 11px;">लिंग: </span><span style="font-weight: 700; font-size: 11.5px;">${voter.gender}</span></div>
-          <div><span style="font-weight: bold; font-size: 11px;">आयु: </span><span style="font-weight: 800; font-size: 11.5px;">${voter.age}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div><span style="font-weight: bold; font-size: ${smallTextSize};">म०: </span><span style="font-weight: 800; font-size: ${smallTextSize};">${voter.houseNo}</span></div>
+          <div><span style="font-weight: bold; font-size: ${smallTextSize};">लिंग: </span><span style="font-weight: 700; font-size: ${smallTextSize};">${voter.gender}</span></div>
+          <div><span style="font-weight: bold; font-size: ${smallTextSize};">आयु: </span><span style="font-weight: 800; font-size: ${smallTextSize};">${voter.age}</span></div>
         </div>
 
         <!-- Row 6: Polling Station -->
-        <div style="display: flex; align-items: flex-start; margin-top: 1px; line-height: 1.25;">
-          <span style="font-weight: bold; font-size: 10px; white-space: nowrap; margin-right: 4px; flex-shrink: 0;">मतदान केंद्र :</span>
-          <span style="font-weight: 700; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${voter.pollingStation}</span>
+        <div style="display: flex; align-items: flex-start; line-height: 1.2;">
+          <span style="font-weight: bold; font-size: ${smallTextSize}; white-space: nowrap; margin-right: 3px; flex-shrink: 0;">केंद्र:</span>
+          <span style="font-weight: 700; font-size: ${smallTextSize}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${voter.pollingStation}</span>
         </div>
       </div>
     </div>
@@ -220,11 +235,11 @@ function renderAlphabeticalPageHtml(votersSlice, pageNum, totalPages, meta) {
 }
 
 function renderGridPageHtml(votersSlice, pageNum, totalPages, format, meta) {
-  const cardsPerPage = format.cardsPerPage; // 6 or 8
-  const rows = cardsPerPage === 6 ? 3 : 4;
+  const cardsPerPage = format.cardsPerPage || 8;
+  const rows = cardsPerPage === 6 ? 3 : (cardsPerPage === 8 ? 4 : (cardsPerPage === 10 ? 5 : 6));
   const cols = 2;
-  const gapV = cardsPerPage === 6 ? 10 : 8;
-  const gapH = 10;
+  const gapV = cardsPerPage === 6 ? 10 : (cardsPerPage === 8 ? 7 : (cardsPerPage === 10 ? 5 : 4));
+  const gapH = 8;
 
   return `
     <div style="width: 210mm; height: 296.5mm; padding: 5mm; box-sizing: border-box; page-break-after: always; display: flex; flex-direction: column; overflow: hidden; background: #ffffff;">

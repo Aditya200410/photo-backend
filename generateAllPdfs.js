@@ -56,17 +56,34 @@ async function run() {
   try {
     for (const fileMeta of metadata) {
       const jsonPath = path.join(__dirname, 'uploads', fileMeta.fileName + '.json');
-      if (!fs.existsSync(jsonPath)) {
-        console.log(`Skipping file without JSON: ${fileMeta.fileName}`);
-        continue;
-      }
+      const partDir = path.join(__dirname, 'uploads', fileMeta.fileName + '_panchayats');
 
       let voters = [];
-      try {
-        voters = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      } catch (e) {
-        console.error(`Error reading JSON for ${fileMeta.fileName}:`, e.message);
-        continue;
+      if (fs.existsSync(partDir)) {
+        const indexPath = path.join(partDir, '_index.json');
+        if (fs.existsSync(indexPath)) {
+          try {
+            const pIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+            for (const [pName, info] of Object.entries(pIndex)) {
+              const pFile = path.join(partDir, info.file);
+              if (fs.existsSync(pFile)) {
+                const chunk = JSON.parse(fs.readFileSync(pFile, 'utf-8'));
+                voters = voters.concat(chunk);
+                if (voters.length >= 3500) break;
+              }
+            }
+          } catch (e) {
+            console.error(`Error reading panchayats chunk for ${fileMeta.fileName}:`, e.message);
+          }
+        }
+      }
+
+      if (voters.length === 0 && fs.existsSync(jsonPath)) {
+        try {
+          voters = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+        } catch (e) {
+          console.error(`Error reading JSON for ${fileMeta.fileName}:`, e.message);
+        }
       }
 
       if (!Array.isArray(voters) || voters.length === 0) {
