@@ -74,8 +74,8 @@ function renderSlipHtml(voter, format) {
   const isDense = cardsPerPage >= 10;
   const is12 = cardsPerPage >= 12;
 
-  // Header banner height exactly matching the template box
-  const headerH = cardsPerPage === 6 ? '46px' : (cardsPerPage === 8 ? '36px' : '30px');
+  // Header banner height exactly matching the template box with expanded image space
+  const headerH = cardsPerPage === 6 ? '68px' : (cardsPerPage === 8 ? '52px' : '40px');
   const headerFontSize = cardsPerPage === 6 ? '12px' : (cardsPerPage === 8 ? '10px' : '9px');
   const cutNoticeSize = cardsPerPage === 6 ? '8px' : '7px';
   const paddingBox = is12 ? '2px 5px 2px 5px' : (isDense ? '3px 6px 3px 6px' : '4px 8px 3px 8px');
